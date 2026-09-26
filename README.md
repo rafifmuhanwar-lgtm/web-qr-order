@@ -1,16 +1,53 @@
-# React + Vite
+# Web QR Order (Sistem Kasir & Pemesanan Mandiri)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Sebuah aplikasi web berbasis Point of Sales (POS) modern yang dilengkapi dengan fitur pemesanan mandiri melalui QR Code untuk pelanggan. Sistem ini didesain dengan alur kerja yang mirip dengan restoran cepat saji masa kini (seperti Gacoan dsb), di mana pelanggan bisa memesan dari meja, sementara kasir/admin mengelola pesanan dari dashboard.
 
-Currently, two official plugins are available:
+## 🚀 Fitur Utama
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Pemesanan via QR Code (Customer)**: Pelanggan dapat memindai QR code meja untuk melihat menu, memasukkan pesanan ke keranjang, dan memantau status pesanan.
+- **Dashboard Admin (Kasir)**: Antarmuka untuk mengelola pesanan yang masuk secara real-time.
+- **Manajemen Menu & Kategori**: Admin dapat menambah, mengubah, atau menghapus menu beserta kategorinya.
+- **Manajemen Meja (QR Generator)**: Admin dapat membuat data meja dan secara otomatis men-generate QR Code untuk masing-masing meja.
+- **Cetak Struk (Receipt)**: Mendukung fitur pembuatan dan pencetakan struk pembayaran.
+- **Laporan Penjualan**: Halaman laporan untuk melihat rekapitulasi penjualan.
 
-## React Compiler
+## 🛠️ Teknologi yang Digunakan
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Frontend**: React (v19), Vite, React Router
+- **Styling**: Tailwind CSS
+- **Ikon**: Lucide React
+- **Backend & Database**: Firebase (Authentication & Cloud Firestore)
+- **Fitur Spesifik**: `qrcode.react` untuk pembuatan QR Code
 
-## Expanding the ESLint configuration
+## 📦 Cara Menjalankan Proyek secara Lokal
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+1. **Clone repositori ini**:
+   ```bash
+   git clone https://github.com/rafifmuhanwar-lgtm/web-qr-order.git
+   cd web-qr-order/src
+   ```
+
+2. **Instal dependensi**:
+   ```bash
+   npm install
+   ```
+
+3. **Konfigurasi Environment Variables**:
+   Buat file `.env` di dalam folder `src` (bisa meng-copy dari `.env.example`) dan isi dengan konfigurasi Firebase Anda:
+   ```env
+   VITE_FIREBASE_API_KEY="api-key-anda"
+   VITE_FIREBASE_AUTH_DOMAIN="domain-auth-anda"
+   VITE_FIREBASE_PROJECT_ID="project-id-anda"
+   VITE_FIREBASE_STORAGE_BUCKET="storage-bucket-anda"
+   VITE_FIREBASE_MESSAGING_SENDER_ID="sender-id-anda"
+   VITE_FIREBASE_APP_ID="app-id-anda"
+   ```
+
+4. **Jalankan Development Server**:
+   ```bash
+   npm run dev
+   ```
+   Buka `http://localhost:5173` di browser Anda.
+
+## 🔒 Keamanan
+Data kredensial Firebase tidak boleh dipublikasikan. Pastikan file `.env` sudah masuk ke dalam `.gitignore` sehingga tidak ikut ter-push ke repository ini.
