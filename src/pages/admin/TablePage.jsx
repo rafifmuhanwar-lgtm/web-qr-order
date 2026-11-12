@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { getTablesByStore, addTable, deleteTable, generateQRUrl, padTableNumber } from '../../services/tableService';
 import { QRCodeSVG } from 'qrcode.react';
-import { Plus, Trash2, QrCode, Download, Copy } from 'lucide-react';
+import { Plus, Trash2, QrCode, Download, Copy, ShoppingBag } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
 import Input from '../../components/ui/Input';
@@ -106,6 +106,49 @@ export default function TablePage() {
                 <Button onClick={() => setAddModal(true)}>
                     <Plus className="w-4 h-4" /> Tambah Meja
                 </Button>
+            </div>
+
+            {/* Banner Link Bio / Pesan Online */}
+            <div className="bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-orange-500/10 border-2 border-orange-500/20 rounded-2xl p-5">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-xl bg-primary text-white flex items-center justify-center shrink-0 shadow-md shadow-primary/20">
+                            <ShoppingBag className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <h3 className="font-bold text-secondary text-base">Link Pesan Online (Bio Link Resto)</h3>
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary text-white">Online Order</span>
+                            </div>
+                            <p className="text-xs text-slate-500 mt-0.5">
+                                Bagikan link ini di bio Instagram, TikTok, atau WhatsApp untuk melayani pesanan dari rumah (Ambil Sendiri / Delivery).
+                            </p>
+                            <p className="text-xs font-mono font-semibold text-primary mt-1 break-all">
+                                {window.location.origin}/order/{storeId}
+                            </p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => {
+                                navigator.clipboard.writeText(`${window.location.origin}/order/${storeId}`);
+                                toast.success('Link toko berhasil disalin!');
+                            }}
+                            className="flex-1 sm:flex-initial"
+                        >
+                            <Copy className="w-4 h-4" /> Salin Link
+                        </Button>
+                        <Button
+                            size="sm"
+                            onClick={() => window.open(`/order/${storeId}`, '_blank')}
+                            className="flex-1 sm:flex-initial"
+                        >
+                            Buka Menu ↗
+                        </Button>
+                    </div>
+                </div>
             </div>
 
             {tables.length === 0 ? (

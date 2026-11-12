@@ -16,8 +16,9 @@ export default function MenuPage() {
     const [loading, setLoading] = useState(true);
     const [activeCategory, setActiveCategory] = useState('all');
     const [search, setSearch] = useState('');
+    const cartKey = `cart_${storeId}_${tableId || 'online'}`;
     const [cart, setCart] = useState(() => {
-        const saved = sessionStorage.getItem(`cart_${storeId}_${tableId}`);
+        const saved = sessionStorage.getItem(cartKey);
         return saved ? JSON.parse(saved) : [];
     });
     const [noteModal, setNoteModal] = useState(null);
@@ -54,7 +55,7 @@ export default function MenuPage() {
     }, [storeId]);
 
     useEffect(() => {
-        sessionStorage.setItem(`cart_${storeId}_${tableId}`, JSON.stringify(cart));
+        sessionStorage.setItem(`cart_${storeId}_${tableId || 'online'}`, JSON.stringify(cart));
     }, [cart, storeId, tableId]);
 
     const filteredMenus = useMemo(() => {
@@ -107,7 +108,8 @@ export default function MenuPage() {
     };
 
     const goToCart = () => {
-        navigate(`/order/${storeId}/${tableId}/cart`, { state: { cart } });
+        const cartPath = tableId ? `/order/${storeId}/${tableId}/cart` : `/order/${storeId}/cart`;
+        navigate(cartPath, { state: { cart } });
     };
 
     const formatPrice = (price) => {
@@ -133,7 +135,13 @@ export default function MenuPage() {
                         )}
                         <h1 className="text-xl font-bold">{storeName || 'Menu'}</h1>
                     </div>
-                    <p className="text-white/80 text-sm">Meja #{String(tableId).padStart(3, '0')}</p>
+                    {tableId ? (
+                        <p className="text-white/80 text-sm">Meja #{String(tableId).padStart(3, '0')}</p>
+                    ) : (
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 mt-1 rounded-full bg-white/20 text-white text-xs font-semibold backdrop-blur-xs">
+                            <span>🛍️ Pesan Online / Dari Rumah</span>
+                        </div>
+                    )}
                     {welcomeMessage && (
                         <p className="text-white/70 text-sm mt-2 italic">{welcomeMessage}</p>
                     )}

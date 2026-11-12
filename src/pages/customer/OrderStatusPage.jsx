@@ -4,7 +4,7 @@ import { subscribeToOrderStatus } from '../../services/orderService';
 import { getStore } from '../../services/storeService';
 import { applyThemeColor } from '../../utils/themeUtils';
 import { downloadReceiptPNG } from '../../utils/receiptGenerator';
-import { Clock, ChefHat, CheckCircle2, Package, QrCode, Banknote, Download } from 'lucide-react';
+import { Clock, ChefHat, CheckCircle2, Package, QrCode, Banknote, Download, MapPin } from 'lucide-react';
 import Spinner from '../../components/ui/Spinner';
 
 const steps = [
@@ -88,9 +88,32 @@ export default function OrderStatusPage() {
                         {order.status === 'completed' ? 'Pesanan Siap!' :
                             order.status === 'processing' ? 'Sedang Diproses' : 'Menunggu Konfirmasi'}
                     </h1>
-                    <p className="text-white/80 text-sm">Meja #{order.tableNumber || '?'}</p>
+                    <p className="text-white/90 text-sm font-semibold">
+                        {order.tableNumber
+                            ? `Meja #${order.tableNumber}`
+                            : order.orderType === 'delivery'
+                                ? '🛵 Antar ke Rumah (Delivery)'
+                                : '🛍️ Ambil di Resto (Take Away)'}
+                    </p>
+                    {order.customerName && (
+                        <p className="text-white/80 text-xs mt-0.5">Pemesan: {order.customerName}</p>
+                    )}
                 </div>
             </div>
+
+            {/* Delivery / Take Away Info Box */}
+            {order.orderType === 'delivery' && order.deliveryAddress && (
+                <div className="bg-white rounded-2xl border border-border p-4 shadow-sm text-xs">
+                    <div className="flex items-center gap-2 mb-1 text-secondary font-bold">
+                        <MapPin className="w-4 h-4 text-primary" />
+                        <span>Alamat Pengantaran:</span>
+                    </div>
+                    <p className="text-slate-600 leading-relaxed pl-6">{order.deliveryAddress}</p>
+                    {order.customerPhone && (
+                        <p className="text-slate-400 pl-6 mt-1 font-mono">No. WhatsApp: {order.customerPhone}</p>
+                    )}
+                </div>
+            )}
 
             {/* QRIS Payment Section */}
             {order.paymentMethod === 'qris' && order.paymentStatus !== 'paid' && (

@@ -192,7 +192,20 @@ export default function OrderPage() {
                                                 <CheckCircle2 className="w-5 h-5 text-emerald-600" />}
                                     </div>
                                     <div>
-                                        <h3 className="font-bold text-secondary">Meja #{order.tableNumber || '?'}</h3>
+                                        <div className="flex items-center gap-2">
+                                            <h3 className="font-bold text-secondary">
+                                                {order.tableNumber ? `Meja #${order.tableNumber}` : (order.customerName || 'Online')}
+                                            </h3>
+                                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                                order.orderType === 'delivery'
+                                                    ? 'bg-purple-100 text-purple-700 border border-purple-200'
+                                                    : order.orderType === 'take_away' && !order.tableNumber
+                                                        ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                                                        : 'bg-slate-100 text-slate-600'
+                                            }`}>
+                                                {order.orderType === 'delivery' ? '🛵 Delivery' : order.orderType === 'take_away' ? '🛍️ Take Away' : '🍽️ Dine In'}
+                                            </span>
+                                        </div>
                                         <p className="text-xs text-slate-400">{formatTime(order.createdAt)}</p>
                                     </div>
                                 </div>
@@ -274,7 +287,13 @@ export default function OrderPage() {
                             {/* Order Info */}
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <h4 className="font-bold text-secondary text-lg">Meja #{detailOrder.tableNumber || '?'}</h4>
+                                    <h4 className="font-bold text-secondary text-lg">
+                                        {detailOrder.tableNumber
+                                            ? `Meja #${detailOrder.tableNumber}`
+                                            : detailOrder.orderType === 'delivery'
+                                                ? '🛵 Pesanan Delivery'
+                                                : '🛍️ Pesanan Take Away'}
+                                    </h4>
                                     <p className="text-xs text-slate-400">{formatTime(detailOrder.createdAt)}</p>
                                 </div>
                                 <Badge status={detailOrder.status} />
@@ -313,10 +332,41 @@ export default function OrderPage() {
                             <div className="bg-slate-50 rounded-xl p-4 space-y-2">
                                 {detailOrder.orderType && (
                                     <div className="flex justify-between text-sm">
-                                        <span className="text-slate-500">Tipe</span>
+                                        <span className="text-slate-500">Tipe Pesanan</span>
                                         <span className="font-semibold text-secondary">
-                                            {detailOrder.orderType === 'dine_in' ? '🍽️ Dine In' : '🛍️ Take Away'}
+                                            {detailOrder.orderType === 'dine_in'
+                                                ? '🍽️ Dine In (Makan di Meja)'
+                                                : detailOrder.orderType === 'delivery'
+                                                    ? '🛵 Delivery (Kirim ke Rumah)'
+                                                    : '🛍️ Take Away (Ambil Sendiri)'}
                                         </span>
+                                    </div>
+                                )}
+                                {detailOrder.customerName && (
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-slate-500">Nama Pemesan</span>
+                                        <span className="font-semibold text-secondary">{detailOrder.customerName}</span>
+                                    </div>
+                                )}
+                                {detailOrder.customerPhone && (
+                                    <div className="flex justify-between items-center text-sm">
+                                        <span className="text-slate-500">Kontak WhatsApp</span>
+                                        <a
+                                            href={`https://wa.me/${detailOrder.customerPhone.replace(/\D/g, '')}?text=Halo%20${encodeURIComponent(detailOrder.customerName || '')},%20mengenai%20pesanan%20eMakan%20Anda...`}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="font-bold text-emerald-600 hover:underline flex items-center gap-1"
+                                        >
+                                            <span>💬 Hubungi WA</span>
+                                        </a>
+                                    </div>
+                                )}
+                                {detailOrder.deliveryAddress && (
+                                    <div className="text-xs pt-2 border-t border-border mt-1">
+                                        <span className="text-slate-500 font-semibold block mb-1">📍 Alamat Pengantaran:</span>
+                                        <p className="font-medium text-slate-700 bg-white p-2.5 rounded-xl border border-border leading-relaxed">
+                                            {detailOrder.deliveryAddress}
+                                        </p>
                                     </div>
                                 )}
                                 <div className="flex justify-between text-sm">

@@ -160,17 +160,22 @@ export async function downloadReceiptPNG(order, storeName, orderId, storeAddress
     text(`#${shortId}`, W - PAD, y, { font: 'bold 13px monospace', color: '#333', align: 'right' });
     y += LINE_H;
 
-    text('Meja', PAD, y, { font: '12px sans-serif', color: '#888' });
-    text(`#${order.tableNumber || '?'}`, W - PAD, y, { font: 'bold 13px sans-serif', color: '#333', align: 'right' });
+    if (order.tableNumber) {
+        text('Meja', PAD, y, { font: '12px sans-serif', color: '#888' });
+        text(`#${order.tableNumber}`, W - PAD, y, { font: 'bold 13px sans-serif', color: '#333', align: 'right' });
+    } else {
+        text('Pemesan', PAD, y, { font: '12px sans-serif', color: '#888' });
+        text(order.customerName || 'Online', W - PAD, y, { font: 'bold 13px sans-serif', color: '#333', align: 'right' });
+    }
     y += LINE_H;
 
     text('Waktu', PAD, y, { font: '12px sans-serif', color: '#888' });
     text(fmtDate(order.createdAt), W - PAD, y, { font: '12px sans-serif', color: '#555', align: 'right' });
     y += LINE_H;
 
-    // Order Type (Dine In / Take Away)
+    // Order Type (Dine In / Take Away / Delivery)
     if (order.orderType) {
-        const typeLabel = order.orderType === 'dine_in' ? 'Dine In' : order.orderType === 'take_away' ? 'Take Away' : '-';
+        const typeLabel = order.orderType === 'dine_in' ? 'Dine In' : order.orderType === 'delivery' ? 'Delivery' : 'Take Away';
         text('Tipe', PAD, y, { font: '12px sans-serif', color: '#888' });
         text(typeLabel, W - PAD, y, { font: 'bold 13px sans-serif', color: '#333', align: 'right' });
         y += LINE_H;

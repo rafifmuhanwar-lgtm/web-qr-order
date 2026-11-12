@@ -35,8 +35,12 @@ function AppRoutes() {
     <Routes>
       {/* Customer Routes */}
       <Route element={<CustomerLayout />}>
+        {/* QR Meja (Dine In) */}
         <Route path="/order/:storeId/:tableId" element={<MenuPage />} />
         <Route path="/order/:storeId/:tableId/cart" element={<CartPage />} />
+        {/* Order Online / Dari Rumah */}
+        <Route path="/order/:storeId" element={<MenuPage />} />
+        <Route path="/order/:storeId/cart" element={<CartPage />} />
         <Route path="/order-status/:orderId" element={<OrderStatusPage />} />
       </Route>
 
