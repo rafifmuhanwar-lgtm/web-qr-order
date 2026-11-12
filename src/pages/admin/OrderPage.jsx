@@ -98,9 +98,17 @@ export default function OrderPage() {
         return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(price);
     };
 
+    const parseDate = (ts) => {
+        if (!ts) return null;
+        if (typeof ts?.toDate === 'function') return ts.toDate();
+        const d = new Date(ts);
+        return isNaN(d.getTime()) ? null : d;
+    };
+
     const formatTime = (timestamp) => {
-        if (!timestamp?.toDate) return '-';
-        return timestamp.toDate().toLocaleString('id-ID', {
+        const d = parseDate(timestamp);
+        if (!d) return '-';
+        return d.toLocaleString('id-ID', {
             hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short',
         });
     };

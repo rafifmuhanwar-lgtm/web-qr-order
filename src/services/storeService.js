@@ -1,18 +1,19 @@
-import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../config/firebase';
-
-const COLLECTION = 'stores';
+import { supabase } from '../config/supabase';
 
 export const getStore = async (storeId) => {
-    const docRef = doc(db, COLLECTION, storeId);
-    const snap = await getDoc(docRef);
-    if (snap.exists()) {
-        return { id: snap.id, ...snap.data() };
-    }
-    return null;
+    const { data, error } = await supabase
+        .from('stores')
+        .select('*')
+        .eq('id', storeId)
+        .single();
+    if (error) return null;
+    return data;
 };
 
-export const updateStore = async (storeId, data) => {
-    const docRef = doc(db, COLLECTION, storeId);
-    await updateDoc(docRef, { ...data, updatedAt: serverTimestamp() });
+export const updateStore = async (storeId, updateData) => {
+    const { error } = await supabase
+        .from('stores')
+        .update(updateData)
+        .eq('id', storeId);
+    if (error) throw error;
 };

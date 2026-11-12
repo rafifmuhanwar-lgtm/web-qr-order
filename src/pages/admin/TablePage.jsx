@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { getTablesByStore, addTable, deleteTable, generateQRUrl, padTableNumber } from '../../services/tableService';
 import { QRCodeSVG } from 'qrcode.react';
@@ -15,12 +15,10 @@ export default function TablePage() {
     const [tables, setTables] = useState([]);
     const [loading, setLoading] = useState(true);
     const [addModal, setAddModal] = useState(false);
-    const [qrModal, setQrModal] = useState(null);
     const [tableNumber, setTableNumber] = useState('');
     const [saving, setSaving] = useState(false);
-    const qrRef = useRef();
 
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         try {
             const data = await getTablesByStore(storeId);
             setTables(data);
@@ -29,11 +27,11 @@ export default function TablePage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [storeId]);
 
     useEffect(() => {
         if (storeId) fetchData();
-    }, [storeId]);
+    }, [storeId, fetchData]);
 
     const handleAdd = async () => {
         if (!tableNumber) {

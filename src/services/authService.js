@@ -1,51 +1,71 @@
-import {
-    createUserWithEmailAndPassword,
-    signInWithEmailAndPassword,
-    signOut,
-} from 'firebase/auth';
-import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db } from '../config/firebase';
+import { supabase } from '../config/supabase';
 
 export const registerAdmin = async (email, password, storeName) => {
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    const user = userCredential.user;
-
-    // Create store document
-    const storeRef = doc(db, 'stores', user.uid);
-    await setDoc(storeRef, {
-        name: storeName,
-        ownerId: user.uid,
-        address: '',
-        logo: '',
-        createdAt: serverTimestamp(),
-    });
-
-    // Create user document
-    const userRef = doc(db, 'users', user.uid);
-    await setDoc(userRef, {
+    // 1. Sign up di Supabase Auth
+    const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
-        role: 'admin',
-        storeId: user.uid,
-        createdAt: serverTimestamp(),
+        password,
     });
+
+    if (authError) throw authError;
+
+    const user = authData.user;
+    if (!user) throw new Error("Gagal membuat user");
+
+    // 2. Simpan data Toko (Store) di tabel 'stores'
+    const { error: storeError } = await supabase
+        .from('stores')
+        .insert([
+            {
+                id: user.id, // Supabase id (UUID)
+                name: storeName,
+                owner_id: user.id,
+                address: '',
+                logo: ''
+            }
+        ]);
+
+    if (storeError) throw storeError;
+
+    // 3. Simpan Profil User di tabel 'users'
+    const { error: userError } = await supabase
+        .from('users')
+        .insert([
+            {
+                id: user.id,
+                email: email,
+                role: 'admin',
+                store_id: user.id
+            }
+        ]);
+
+    if (userError) throw userError;
 
     return user;
 };
 
 export const loginWithEmail = async (email, password) => {
-    const userCredential = await signInWithEmailAndPassword(auth, email, password);
-    return userCredential.user;
+    const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+    });
+
+    if (error) throw error;
+    return data.user;
 };
 
 export const logout = async () => {
-    await signOut(auth);
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
 };
 
 export const getUserData = async (uid) => {
-    const userRef = doc(db, 'users', uid);
-    const userSnap = await getDoc(userRef);
-    if (userSnap.exists()) {
-        return { id: userSnap.id, ...userSnap.data() };
-    }
-    return null;
+    const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', uid)
+        .single();
+
+    if (error) return null;
+    return data;
 };

@@ -34,11 +34,14 @@ export default function LoginPage() {
             }
             navigate('/admin');
         } catch (err) {
-            const msg = err.code === 'auth/user-not-found' ? 'User tidak ditemukan'
-                : err.code === 'auth/wrong-password' ? 'Password salah'
-                    : err.code === 'auth/email-already-in-use' ? 'Email sudah terdaftar'
-                        : err.code === 'auth/weak-password' ? 'Password minimal 6 karakter'
-                            : 'Terjadi kesalahan';
+            let msg = err?.message || 'Terjadi kesalahan';
+            if (msg.includes('Invalid login credentials')) {
+                msg = 'Email atau password salah';
+            } else if (msg.includes('already registered') || msg.includes('already in use')) {
+                msg = 'Email sudah terdaftar';
+            } else if (msg.includes('at least 6 characters') || msg.includes('weak-password')) {
+                msg = 'Password minimal 6 karakter';
+            }
             toast.error(msg);
         } finally {
             setLoading(false);

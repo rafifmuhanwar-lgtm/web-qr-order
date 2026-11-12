@@ -1,85 +1,104 @@
-import {
-    collection,
-    query,
-    where,
-    addDoc,
-    updateDoc,
-    doc,
-    onSnapshot,
-    serverTimestamp,
-    orderBy,
-    getDocs,
-    Timestamp,
-} from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { supabase } from '../config/supabase';
 
 const COLLECTION = 'orders';
 
 export const createOrder = async (orderData) => {
-    const docRef = await addDoc(collection(db, COLLECTION), {
-        ...orderData,
-        status: 'pending',
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-    });
-    return docRef.id;
+    const { data: result, error } = await supabase
+        .from(COLLECTION)
+        .insert([{ ...orderData, status: 'pending' }])
+        .select()
+        .single();
+    if (error) throw error;
+    return result.id;
 };
 
 export const subscribeToOrders = (storeId, callback, onError) => {
-    const q = query(
-        collection(db, COLLECTION),
-        where('storeId', '==', storeId)
-    );
-    return onSnapshot(q, (snapshot) => {
-        const orders = snapshot.docs
-            .map((doc) => ({ id: doc.id, ...doc.data() }))
-            .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-        callback(orders);
-    }, (error) => {
-        console.error('Order subscription error:', error);
-        if (onError) onError(error);
-    });
+    // Initial fetch
+    supabase.from(COLLECTION)
+        .select('*')
+        .eq('storeId', storeId)
+        .order('createdAt', { ascending: false })
+        .then(({ data, error }) => {
+            if (error && onError) return onError(error);
+            if (data) callback(data);
+        });
+
+    // Realtime channel
+    const channel = supabase.channel(`public:${COLLECTION}:storeId=eq.${storeId}`)
+        .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
+            table: COLLECTION,
+            filter: `storeId=eq.${storeId}`
+        }, () => {
+            // Re-fetch on any change for simplicity in sorting
+            supabase.from(COLLECTION)
+                .select('*')
+                .eq('storeId', storeId)
+                .order('createdAt', { ascending: false })
+                .then(({ data }) => {
+                    if (data) callback(data);
+                });
+        })
+        .subscribe();
+
+    return () => {
+        supabase.removeChannel(channel);
+    };
 };
 
 export const subscribeToOrderStatus = (orderId, callback, onError) => {
-    const docRef = doc(db, COLLECTION, orderId);
-    return onSnapshot(docRef, (doc) => {
-        if (doc.exists()) {
-            callback({ id: doc.id, ...doc.data() });
-        }
-    }, (error) => {
-        console.error('Order status subscription error:', error);
-        if (onError) onError(error);
-    });
+    supabase.from(COLLECTION)
+        .select('*')
+        .eq('id', orderId)
+        .single()
+        .then(({ data, error }) => {
+            if (error && onError) return onError(error);
+            if (data) callback(data);
+        });
+
+    const channel = supabase.channel(`public:${COLLECTION}:id=eq.${orderId}`)
+        .on('postgres_changes', {
+            event: 'UPDATE',
+            schema: 'public',
+            table: COLLECTION,
+            filter: `id=eq.${orderId}`
+        }, (payload) => {
+            callback(payload.new);
+        })
+        .subscribe();
+
+    return () => {
+        supabase.removeChannel(channel);
+    };
 };
 
 export const updateOrderStatus = async (orderId, status) => {
-    const docRef = doc(db, COLLECTION, orderId);
-    await updateDoc(docRef, { status, updatedAt: serverTimestamp() });
+    const { error } = await supabase
+        .from(COLLECTION)
+        .update({ status })
+        .eq('id', orderId);
+    if (error) throw error;
 };
 
 export const updateOrderPayment = async (orderId, paymentData) => {
-    const docRef = doc(db, COLLECTION, orderId);
-    await updateDoc(docRef, {
-        ...paymentData,
-        paymentStatus: 'paid',
-        updatedAt: serverTimestamp(),
-    });
+    const { error } = await supabase
+        .from(COLLECTION)
+        .update({ ...paymentData, paymentStatus: 'paid' })
+        .eq('id', orderId);
+    if (error) throw error;
 };
 
 export const getOrdersByDateRange = async (storeId, startDate, endDate) => {
-    const start = Timestamp.fromDate(new Date(startDate + 'T00:00:00'));
-    const end = Timestamp.fromDate(new Date(endDate + 'T23:59:59'));
-
-    const q = query(
-        collection(db, COLLECTION),
-        where('storeId', '==', storeId),
-        where('createdAt', '>=', start),
-        where('createdAt', '<=', end),
-        orderBy('createdAt', 'desc')
-    );
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    const { data, error } = await supabase
+        .from(COLLECTION)
+        .select('*')
+        .eq('storeId', storeId)
+        .gte('createdAt', `${startDate}T00:00:00`)
+        .lte('createdAt', `${endDate}T23:59:59`)
+        .order('createdAt', { ascending: false });
+    if (error) throw error;
+    return data;
 };
 
 export const exportOrdersToCSV = (orders) => {
@@ -90,7 +109,7 @@ export const exportOrdersToCSV = (orders) => {
         order.items?.map((i) => `${i.name} x${i.quantity}`).join('; ') || '-',
         order.totalPrice || 0,
         order.status,
-        order.createdAt?.toDate?.()?.toLocaleDateString('id-ID') || '-',
+        new Date(order.createdAt).toLocaleDateString('id-ID') || '-',
     ]);
 
     const csv = [headers, ...rows].map((r) => r.join(',')).join('\n');
@@ -104,17 +123,16 @@ export const exportOrdersToCSV = (orders) => {
 };
 
 export const getOrdersByMonth = async (storeId, year, month) => {
-    const start = Timestamp.fromDate(new Date(year, month, 1));
-    const end = Timestamp.fromDate(new Date(year, month + 1, 0, 23, 59, 59));
+    const start = new Date(year, month, 1).toISOString();
+    const end = new Date(year, month + 1, 0, 23, 59, 59).toISOString();
 
-    const q = query(
-        collection(db, COLLECTION),
-        where('storeId', '==', storeId),
-        where('createdAt', '>=', start),
-        where('createdAt', '<=', end),
-        orderBy('createdAt', 'desc')
-    );
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    const { data, error } = await supabase
+        .from(COLLECTION)
+        .select('*')
+        .eq('storeId', storeId)
+        .gte('createdAt', start)
+        .lte('createdAt', end)
+        .order('createdAt', { ascending: false });
+    if (error) throw error;
+    return data;
 };
-

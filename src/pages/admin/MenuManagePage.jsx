@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { getMenusByStore, addMenu, updateMenu, deleteMenu, uploadMenuImage } from '../../services/menuService';
 import { getCategoriesByStore } from '../../services/categoryService';
@@ -24,7 +24,7 @@ export default function MenuManagePage() {
     const [saving, setSaving] = useState(false);
     const [uploading, setUploading] = useState(false);
 
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         try {
             const [menuData, catData] = await Promise.all([
                 getMenusByStore(storeId),
@@ -37,11 +37,11 @@ export default function MenuManagePage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [storeId]);
 
     useEffect(() => {
         if (storeId) fetchData();
-    }, [storeId]);
+    }, [storeId, fetchData]);
 
     const openAdd = () => {
         setForm(initialForm);
@@ -56,7 +56,7 @@ export default function MenuManagePage() {
             description: menu.description || '',
             categoryId: menu.categoryId || '',
             isAvailable: menu.isAvailable !== false,
-            imageUrl: menu.imageUrl || '',
+            imageUrl: menu.imageUrl || menu.image || '',
         });
         setEditingId(menu.id);
         setModalOpen(true);
@@ -93,7 +93,7 @@ export default function MenuManagePage() {
                 name: form.name,
                 price: Number(form.price),
                 description: form.description,
-                categoryId: form.categoryId,
+                categoryId: form.categoryId || null,
                 isAvailable: form.isAvailable,
                 imageUrl: form.imageUrl,
             };

@@ -8,7 +8,6 @@ import {
 import Button from '../../components/ui/Button';
 import Spinner from '../../components/ui/Spinner';
 import Badge from '../../components/ui/Badge';
-import toast from 'react-hot-toast';
 
 const MONTHS = [
     'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
@@ -40,15 +39,23 @@ export default function ReportPage() {
         return unsubscribe;
     }, [storeId]);
 
-    // Today's date
-    const today = new Date();
-    const todayStr = today.toDateString();
+    const parseDate = (ts) => {
+        if (!ts) return null;
+        if (typeof ts?.toDate === 'function') return ts.toDate();
+        const d = new Date(ts);
+        return isNaN(d.getTime()) ? null : d;
+    };
+
+    const today = useMemo(() => new Date(), []);
 
     // Filter today's orders
-    const todayOrders = useMemo(() =>
-        orders.filter((o) => o.createdAt?.toDate?.()?.toDateString?.() === todayStr),
-        [orders, todayStr]
-    );
+    const todayOrders = useMemo(() => {
+        const todayStr = today.toDateString();
+        return orders.filter((o) => {
+            const d = parseDate(o.createdAt || o.created_at);
+            return d && d.toDateString() === todayStr;
+        });
+    }, [orders, today]);
 
     // Today's stats
     const todayRevenue = useMemo(() =>
@@ -86,7 +93,7 @@ export default function ReportPage() {
         const year = calendarDate.getFullYear();
         const month = calendarDate.getMonth();
         return orders.filter((o) => {
-            const d = o.createdAt?.toDate?.();
+            const d = parseDate(o.createdAt || o.created_at);
             if (!d) return false;
             return d.getFullYear() === year && d.getMonth() === month;
         });
@@ -96,7 +103,7 @@ export default function ReportPage() {
     const ordersByDay = useMemo(() => {
         const map = {};
         monthOrders.forEach((order) => {
-            const date = order.createdAt?.toDate?.();
+            const date = parseDate(order.createdAt || order.created_at);
             if (!date) return;
             const day = date.getDate();
             if (!map[day]) map[day] = [];
@@ -164,8 +171,9 @@ export default function ReportPage() {
     };
 
     const formatTime = (timestamp) => {
-        if (!timestamp?.toDate) return '-';
-        return timestamp.toDate().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+        const d = parseDate(timestamp);
+        if (!d) return '-';
+        return d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
     };
 
     if (loading) return <Spinner />;

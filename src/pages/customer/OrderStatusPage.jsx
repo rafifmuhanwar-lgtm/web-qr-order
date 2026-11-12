@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useLocation } from 'react-router-dom';
 import { subscribeToOrderStatus } from '../../services/orderService';
 import { getStore } from '../../services/storeService';
 import { applyThemeColor } from '../../utils/themeUtils';
@@ -17,9 +17,10 @@ const stepIndex = { pending: 0, processing: 1, completed: 2 };
 
 export default function OrderStatusPage() {
     const { orderId } = useParams();
+    const location = useLocation();
     const [order, setOrder] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [qrisUrl, setQrisUrl] = useState('');
+    const [qrisUrl, setQrisUrl] = useState(location.state?.qrisUrl || '');
     const [storeName, setStoreName] = useState('');
     const [storeAddress, setStoreAddress] = useState('');
     const [receiptFooter, setReceiptFooter] = useState('');
@@ -30,9 +31,11 @@ export default function OrderStatusPage() {
             setOrder(data);
             setLoading(false);
             // Fetch store data for QRIS and theme
-            if (data.storeId && !qrisUrl) {
+            if (data.storeId) {
                 getStore(data.storeId).then((store) => {
-                    if (store?.qrisUrl) setQrisUrl(store.qrisUrl);
+                    if (store?.qrisUrl) {
+                        setQrisUrl((prev) => prev || store.qrisUrl);
+                    }
                     if (store?.name) setStoreName(store.name);
                     if (store?.address) setStoreAddress(store.address);
                     if (store?.receiptFooter) setReceiptFooter(store.receiptFooter);

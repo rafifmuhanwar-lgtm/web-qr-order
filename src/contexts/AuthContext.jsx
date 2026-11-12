@@ -1,6 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from '../config/firebase';
+import { supabase } from '../config/supabase';
 import { getUserData } from '../services/authService';
 import { getStore } from '../services/storeService';
 import { applyThemeColor } from '../utils/themeUtils';
@@ -19,7 +18,8 @@ export const AuthProvider = ({ children }) => {
     const [storeData, setStoreData] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    const storeId = userData?.storeId || user?.uid;
+    // Di Supabase, id user adalah 'id', bukan 'uid'
+    const storeId = userData?.store_id || user?.id;
 
     const refreshStore = useCallback(async () => {
         if (!storeId) return;
@@ -35,10 +35,23 @@ export const AuthProvider = ({ children }) => {
     }, [storeId]);
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-            setUser(firebaseUser);
-            if (firebaseUser) {
-                const data = await getUserData(firebaseUser.uid);
+        // 1. Ambil sesi login saat pertama kali direfresh
+        supabase.auth.getSession().then(async ({ data: { session } }) => {
+            const currentUser = session?.user || null;
+            setUser(currentUser);
+            if (currentUser) {
+                const data = await getUserData(currentUser.id);
+                setUserData(data);
+            }
+            setLoading(false);
+        });
+
+        // 2. Dengarkan perubahan status login (jika user login/logout)
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+            const currentUser = session?.user || null;
+            setUser(currentUser);
+            if (currentUser) {
+                const data = await getUserData(currentUser.id);
                 setUserData(data);
             } else {
                 setUserData(null);
@@ -46,15 +59,30 @@ export const AuthProvider = ({ children }) => {
             }
             setLoading(false);
         });
-        return unsubscribe;
+
+        return () => {
+            subscription.unsubscribe();
+        };
     }, []);
 
-    // Fetch store data when storeId is available
+    // Ambil data toko jika storeId tersedia
     useEffect(() => {
+        let isMounted = true;
         if (storeId) {
-            refreshStore();
+            getStore(storeId).then((data) => {
+                if (!isMounted) return;
+                setStoreData(data);
+                if (data?.themeColor) {
+                    applyThemeColor(data.themeColor, data.customColor);
+                }
+            }).catch((err) => {
+                console.error('Failed to fetch store data:', err);
+            });
         }
-    }, [storeId, refreshStore]);
+        return () => {
+            isMounted = false;
+        };
+    }, [storeId]);
 
     const value = {
         user,

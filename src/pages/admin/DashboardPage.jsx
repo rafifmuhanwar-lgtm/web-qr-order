@@ -22,8 +22,18 @@ export default function DashboardPage() {
         return unsubscribe;
     }, [storeId]);
 
+    const parseDate = (ts) => {
+        if (!ts) return null;
+        if (typeof ts?.toDate === 'function') return ts.toDate();
+        const d = new Date(ts);
+        return isNaN(d.getTime()) ? null : d;
+    };
+
     const today = new Date().toDateString();
-    const todayOrders = orders.filter((o) => o.createdAt?.toDate?.()?.toDateString?.() === today);
+    const todayOrders = orders.filter((o) => {
+        const d = parseDate(o.createdAt || o.created_at);
+        return d && d.toDateString() === today;
+    });
     const todayRevenue = todayOrders
         .filter((o) => o.status !== 'cancelled')
         .reduce((sum, o) => sum + (o.totalPrice || 0), 0);
@@ -39,8 +49,9 @@ export default function DashboardPage() {
     };
 
     const formatTime = (timestamp) => {
-        if (!timestamp?.toDate) return '-';
-        return timestamp.toDate().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+        const d = parseDate(timestamp);
+        if (!d) return '-';
+        return d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
     };
 
     if (loading) return <Spinner />;

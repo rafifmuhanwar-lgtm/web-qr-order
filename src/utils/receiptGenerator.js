@@ -24,7 +24,7 @@ export async function downloadReceiptPNG(order, storeName, orderId, storeAddress
     const LOGO_SIZE = 50;
     if (logoUrl) {
         try {
-            logoImg = await new Promise((resolve, reject) => {
+            logoImg = await new Promise((resolve) => {
                 const img = new Image();
                 img.crossOrigin = 'anonymous';
                 img.onload = () => resolve(img);
@@ -105,7 +105,15 @@ export async function downloadReceiptPNG(order, storeName, orderId, storeAddress
         new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(price);
 
     const fmtDate = (ts) => {
-        const d = ts?.toDate?.() || new Date();
+        let d = new Date();
+        if (ts) {
+            if (typeof ts?.toDate === 'function') {
+                d = ts.toDate();
+            } else {
+                const parsed = new Date(ts);
+                if (!isNaN(parsed.getTime())) d = parsed;
+            }
+        }
         return d.toLocaleDateString('id-ID', {
             day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
         });

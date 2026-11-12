@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { createOrder } from '../../services/orderService';
+import { supabase } from '../../config/supabase';
 import { ArrowLeft, Minus, Plus, Trash2, StickyNote, ChefHat, QrCode, Banknote, UtensilsCrossed, ShoppingBag } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import toast from 'react-hot-toast';
@@ -75,9 +76,34 @@ export default function CartPage() {
 
             const orderId = await createOrder(orderData);
             sessionStorage.removeItem(`cart_${storeId}_${tableId}`);
-            toast.success('Pesanan berhasil dikirim!');
-            navigate(`/order-status/${orderId}`);
-        } catch (err) {
+
+            if (paymentMethod === 'qris') {
+                toast.loading('Menghasilkan QRIS...', { id: 'qris_load' });
+                try {
+                    const { data: qrisData, error } = await supabase.functions.invoke('create-qris', {
+                        body: { 
+                            amount: cartTotal, 
+                            description: `Pesanan Meja ${orderData.tableNumber}` 
+                        }
+                    });
+                    toast.dismiss('qris_load');
+                    if (error || !qrisData?.success) {
+                        toast.error('Gagal membuat QRIS');
+                        navigate(`/order-status/${orderId}`);
+                    } else {
+                        toast.success('Pesanan dikirim! Silakan scan QRIS');
+                        navigate(`/order-status/${orderId}`, { state: { qrisUrl: qrisData.data.qr_url } });
+                    }
+                } catch {
+                    toast.dismiss('qris_load');
+                    toast.error('Gagal membuat QRIS');
+                    navigate(`/order-status/${orderId}`);
+                }
+            } else {
+                toast.success('Pesanan berhasil dikirim!');
+                navigate(`/order-status/${orderId}`);
+            }
+        } catch {
             toast.error('Gagal mengirim pesanan');
         } finally {
             setSubmitting(false);

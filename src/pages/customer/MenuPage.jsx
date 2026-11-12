@@ -44,7 +44,7 @@ export default function MenuPage() {
                         applyThemeColor(storeData.themeColor, storeData.customColor);
                     }
                 }
-            } catch (err) {
+            } catch {
                 toast.error('Gagal memuat menu');
             } finally {
                 setLoading(false);

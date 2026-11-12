@@ -1,38 +1,33 @@
-import {
-    collection,
-    query,
-    where,
-    getDocs,
-    addDoc,
-    deleteDoc,
-    doc,
-    serverTimestamp,
-} from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { supabase } from '../config/supabase';
 
 const COLLECTION = 'tables';
 
 export const getTablesByStore = async (storeId) => {
-    const q = query(
-        collection(db, COLLECTION),
-        where('storeId', '==', storeId)
-    );
-    const snapshot = await getDocs(q);
-    return snapshot.docs
-        .map((doc) => ({ id: doc.id, ...doc.data() }))
-        .sort((a, b) => (a.number || 0) - (b.number || 0));
+    const { data, error } = await supabase
+        .from(COLLECTION)
+        .select('*')
+        .eq('storeId', storeId)
+        .order('number', { ascending: true });
+    if (error) return [];
+    return data;
 };
 
 export const addTable = async (data) => {
-    const docRef = await addDoc(collection(db, COLLECTION), {
-        ...data,
-        createdAt: serverTimestamp(),
-    });
-    return docRef.id;
+    const { data: result, error } = await supabase
+        .from(COLLECTION)
+        .insert([data])
+        .select()
+        .single();
+    if (error) throw error;
+    return result.id;
 };
 
 export const deleteTable = async (id) => {
-    await deleteDoc(doc(db, COLLECTION, id));
+    const { error } = await supabase
+        .from(COLLECTION)
+        .delete()
+        .eq('id', id);
+    if (error) throw error;
 };
 
 export const generateQRUrl = (storeId, tableNumber) => {

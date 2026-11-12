@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { getCategoriesByStore, addCategory, updateCategory, deleteCategory } from '../../services/categoryService';
 import { Plus, Pencil, Trash2, FolderOpen, GripVertical } from 'lucide-react';
@@ -18,7 +18,7 @@ export default function CategoryPage() {
     const [editingId, setEditingId] = useState(null);
     const [saving, setSaving] = useState(false);
 
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         try {
             const data = await getCategoriesByStore(storeId);
             setCategories(data);
@@ -27,11 +27,11 @@ export default function CategoryPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [storeId]);
 
     useEffect(() => {
         if (storeId) fetchData();
-    }, [storeId]);
+    }, [storeId, fetchData]);
 
     const openAdd = () => {
         setForm({ name: '', order: categories.length });
