@@ -21,6 +21,7 @@ import TablePage from './pages/admin/TablePage';
 import OrderPage from './pages/admin/OrderPage';
 import ReportPage from './pages/admin/ReportPage';
 import SettingsPage from './pages/admin/SettingsPage';
+import LandingPage from './pages/LandingPage';
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated, loading } = useAuth();
@@ -58,8 +59,8 @@ function AppRoutes() {
         <Route path="settings" element={<SettingsPage />} />
       </Route>
 
-      {/* Default Redirect */}
-      <Route path="/" element={<Navigate to="/admin/login" replace />} />
+      {/* Landing Page */}
+      <Route path="/" element={<LandingPage />} />
       <Route path="*" element={
         <div className="min-h-screen flex items-center justify-center bg-slate-50">
           <div className="text-center">

@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '../config/supabase';
-import { getUserData } from '../services/authService';
+import { getUserData, ensureUserStore } from '../services/authService';
 import { getStore } from '../services/storeService';
 import { applyThemeColor } from '../utils/themeUtils';
 
@@ -35,29 +35,37 @@ export const AuthProvider = ({ children }) => {
     }, [storeId]);
 
     useEffect(() => {
-        // 1. Ambil sesi login saat pertama kali direfresh
-        supabase.auth.getSession().then(async ({ data: { session } }) => {
-            const currentUser = session?.user || null;
+        const syncUser = async (currentUser) => {
             setUser(currentUser);
             if (currentUser) {
-                const data = await getUserData(currentUser.id);
-                setUserData(data);
-            }
-            setLoading(false);
-        });
-
-        // 2. Dengarkan perubahan status login (jika user login/logout)
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-            const currentUser = session?.user || null;
-            setUser(currentUser);
-            if (currentUser) {
-                const data = await getUserData(currentUser.id);
+                let data = await getUserData(currentUser.id);
+                if (!data) {
+                    try {
+                        const defaultName = currentUser.user_metadata?.full_name 
+                            ? `Resto ${currentUser.user_metadata.full_name}` 
+                            : 'Resto eMakan';
+                        await ensureUserStore(currentUser, defaultName);
+                        data = await getUserData(currentUser.id);
+                    } catch (err) {
+                        console.error('Error auto provisioning user store:', err);
+                    }
+                }
                 setUserData(data);
             } else {
                 setUserData(null);
                 setStoreData(null);
             }
             setLoading(false);
+        };
+
+        // 1. Ambil sesi login saat pertama kali direfresh
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            syncUser(session?.user || null);
+        });
+
+        // 2. Dengarkan perubahan status login (jika user login/logout)
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            syncUser(session?.user || null);
         });
 
         return () => {

@@ -52,7 +52,7 @@ export default function AdminLayout() {
                         <Menu className="w-5 h-5 text-slate-700" />
                     </button>
                     <div className="flex items-center gap-2">
-                        <ChefHat className="w-6 h-6 text-primary" />
+                        <img src="/logo.png" className="w-7 h-7 object-contain rounded-lg" alt="eMakan" />
                         <span className="font-bold text-secondary truncate max-w-[160px]">{storeName}</span>
                     </div>
                     <div className="w-9" />
@@ -75,12 +75,10 @@ export default function AdminLayout() {
       `}>
                 <div className="flex items-center justify-between p-5 border-b border-white/10">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
-                            <ChefHat className="w-6 h-6 text-primary" />
-                        </div>
+                        <img src="/logo.png" className="w-10 h-10 object-contain rounded-xl shadow-md" alt="eMakan" />
                         <div>
                             <h1 className="text-white font-bold text-lg truncate">{storeName}</h1>
-                            <p className="text-slate-400 text-xs">Admin Panel</p>
+                            <p className="text-orange-400 font-semibold text-xs">eMakan POS</p>
                         </div>
                     </div>
                     <button onClick={() => setSidebarOpen(false)} className="lg:hidden p-1 rounded-lg hover:bg-white/10 cursor-pointer">
