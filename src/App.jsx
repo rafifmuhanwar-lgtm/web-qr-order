@@ -18,6 +18,7 @@ import DashboardPage from './pages/admin/DashboardPage';
 import MenuManagePage from './pages/admin/MenuManagePage';
 import CategoryPage from './pages/admin/CategoryPage';
 import TablePage from './pages/admin/TablePage';
+import OnlineQrPage from './pages/admin/OnlineQrPage';
 import OrderPage from './pages/admin/OrderPage';
 import ReportPage from './pages/admin/ReportPage';
 import SettingsPage from './pages/admin/SettingsPage';
@@ -58,6 +59,7 @@ function AppRoutes() {
         <Route path="menu" element={<MenuManagePage />} />
         <Route path="categories" element={<CategoryPage />} />
         <Route path="tables" element={<TablePage />} />
+        <Route path="online-qr" element={<OnlineQrPage />} />
         <Route path="orders" element={<OrderPage />} />
         <Route path="reports" element={<ReportPage />} />
         <Route path="settings" element={<SettingsPage />} />
