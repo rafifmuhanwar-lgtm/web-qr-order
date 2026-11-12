@@ -3,7 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { THEME_COLORS, COLOR_OPTIONS, applyThemeColor } from '../../utils/themeUtils';
 import { getStore, updateStore } from '../../services/storeService';
 import { uploadMenuImage } from '../../services/menuService';
-import { Store, QrCode, Image as ImageIcon, Palette, Save, Check, Pipette, MessageSquare, Receipt, Upload } from 'lucide-react';
+import { Store, Palette, Save, Check, Pipette, MessageSquare, Receipt, Upload } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Spinner from '../../components/ui/Spinner';
@@ -15,10 +15,8 @@ export default function SettingsPage() {
     const [saving, setSaving] = useState(false);
     const [storeName, setStoreName] = useState('');
     const [address, setAddress] = useState('');
-    const [qrisUrl, setQrisUrl] = useState('');
     const [themeColor, setThemeColor] = useState('orange');
     const [customColor, setCustomColor] = useState('#6366f1');
-    const [uploading, setUploading] = useState(false);
 
     // New fields
     const [logoUrl, setLogoUrl] = useState('');
@@ -33,7 +31,6 @@ export default function SettingsPage() {
                 if (data) {
                     setStoreName(data.name || '');
                     setAddress(data.address || '');
-                    setQrisUrl(data.qrisUrl || '');
                     setThemeColor(data.themeColor || 'orange');
                     setCustomColor(data.customColor || '#6366f1');
                     setLogoUrl(data.logoUrl || '');
@@ -48,21 +45,6 @@ export default function SettingsPage() {
         };
         if (storeId) fetchStore();
     }, [storeId]);
-
-    const handleUploadQRIS = async (e) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        setUploading(true);
-        try {
-            const url = await uploadMenuImage(file);
-            setQrisUrl(url);
-            toast.success('QRIS berhasil diupload');
-        } catch {
-            toast.error('Gagal upload QRIS');
-        } finally {
-            setUploading(false);
-        }
-    };
 
     const handleUploadLogo = async (e) => {
         const file = e.target.files?.[0];
@@ -85,7 +67,6 @@ export default function SettingsPage() {
             await updateStore(storeId, {
                 name: storeName,
                 address,
-                qrisUrl,
                 themeColor,
                 customColor: themeColor === 'custom' ? customColor : null,
                 logoUrl,
@@ -335,55 +316,6 @@ export default function SettingsPage() {
                         </div>
                     )}
                 </div>
-            </div>
-
-            {/* QRIS Payment */}
-            <div className="bg-white rounded-2xl border border-border p-5 shadow-sm space-y-4">
-                <div className="flex items-center gap-2 mb-2">
-                    <QrCode className="w-5 h-5 text-primary" />
-                    <h2 className="font-bold text-secondary">Pembayaran QRIS</h2>
-                </div>
-                <p className="text-sm text-slate-500">
-                    Upload gambar QRIS toko kamu. Customer akan melihat QR ini saat memilih pembayaran QRIS.
-                </p>
-
-                {qrisUrl ? (
-                    <div className="relative">
-                        <img
-                            src={qrisUrl}
-                            alt="QRIS"
-                            className="w-full max-w-xs mx-auto rounded-xl border border-border shadow-sm"
-                        />
-                        <button
-                            onClick={() => setQrisUrl('')}
-                            className="absolute top-2 right-2 px-3 py-1 rounded-lg bg-red-500 text-white text-xs font-medium hover:bg-red-600 cursor-pointer"
-                        >
-                            Hapus
-                        </button>
-                    </div>
-                ) : (
-                    <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer hover:border-primary hover:bg-primary/5 transition-all">
-                        {uploading ? (
-                            <div className="text-center">
-                                <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                                <p className="text-sm text-slate-500">Mengupload...</p>
-                            </div>
-                        ) : (
-                            <>
-                                <ImageIcon className="w-10 h-10 text-slate-400 mb-2" />
-                                <p className="text-sm font-medium text-slate-600">Klik untuk upload gambar QRIS</p>
-                                <p className="text-xs text-slate-400 mt-1">PNG, JPG (maks 5MB)</p>
-                            </>
-                        )}
-                        <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={handleUploadQRIS}
-                            disabled={uploading}
-                        />
-                    </label>
-                )}
             </div>
 
             {/* Save Button */}
