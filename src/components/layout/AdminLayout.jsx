@@ -15,6 +15,7 @@ import {
     X,
     ChefHat,
     Settings,
+    Shield,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -31,9 +32,10 @@ const navItems = [
 
 export default function AdminLayout() {
     const [sidebarOpen, setSidebarOpen] = useState(false);
-    const { user, storeData } = useAuth();
+    const { user, userData, storeData } = useAuth();
     const navigate = useNavigate();
     const storeName = storeData?.name || 'Admin Panel';
+    const isMaster = user?.email === 'rafif.muh.anwar@gmail.com' || userData?.role === 'master_admin';
 
     const handleLogout = async () => {
         try {
@@ -89,6 +91,21 @@ export default function AdminLayout() {
                 </div>
 
                 <nav className="p-3 space-y-1 mt-2">
+                    {isMaster && (
+                        <div className="mb-3 pb-2 border-b border-white/10">
+                            <NavLink
+                                to="/master-portal"
+                                onClick={() => setSidebarOpen(false)}
+                                className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-amber-500/20 to-purple-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30 transition-all shadow-md group"
+                            >
+                                <Shield className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+                                <span>Portal Master Admin</span>
+                                <span className="ml-auto text-[9px] px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 border border-amber-400/30">
+                                    PRO
+                                </span>
+                            </NavLink>
+                        </div>
+                    )}
                     {navItems.map((item) => (
                         <NavLink
                             key={item.to}

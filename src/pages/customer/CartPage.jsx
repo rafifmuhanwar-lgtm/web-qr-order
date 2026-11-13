@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { createOrder } from '../../services/orderService';
 import { getStore } from '../../services/storeService';
 import { parseStoreConfig, calculateDistanceKm, calculateShippingFee } from '../../utils/deliveryUtils';
-import { supabase } from '../../config/supabase';
+import { generatePayhookInvoice } from '../../services/payhookService';
 import {
     ArrowLeft,
     Minus,
@@ -209,31 +209,9 @@ export default function CartPage() {
             sessionStorage.removeItem(`cart_${storeId}_${tableId || 'online'}`);
 
             if (selectedPayment === 'qris') {
-                toast.loading('Menghasilkan QRIS...', { id: 'qris_load' });
-                try {
-                    const qrisDesc = tableId
-                        ? `Meja ${orderData.tableNumber} - ${orderData.customerName}`
-                        : `Online - ${orderData.customerName} (${finalOrderType === 'delivery' ? 'Antar' : 'Ambil'})`;
-
-                    const { data: qrisData, error } = await supabase.functions.invoke('create-qris', {
-                        body: {
-                            amount: finalTotal,
-                            description: qrisDesc,
-                        }
-                    });
-                    toast.dismiss('qris_load');
-                    if (error || !qrisData?.success) {
-                        toast.error('Gagal membuat QRIS');
-                        navigate(`/order-status/${orderId}`);
-                    } else {
-                        toast.success('Pesanan dikirim! Silakan scan QRIS');
-                        navigate(`/order-status/${orderId}`, { state: { qrisUrl: qrisData.data.qr_url } });
-                    }
-                } catch {
-                    toast.dismiss('qris_load');
-                    toast.error('Gagal membuat QRIS');
-                    navigate(`/order-status/${orderId}`);
-                }
+                const invoice = generatePayhookInvoice(finalTotal, orderId);
+                toast.success('Pesanan dikirim! Silakan scan QRIS');
+                navigate(`/order-status/${orderId}`, { state: { payhookInvoice: invoice } });
             } else {
                 toast.success('Pesanan berhasil dikirim!');
                 navigate(`/order-status/${orderId}`);

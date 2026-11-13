@@ -24,6 +24,10 @@ import ReportPage from './pages/admin/ReportPage';
 import SettingsPage from './pages/admin/SettingsPage';
 import LandingPage from './pages/LandingPage';
 
+// Master Superadmin Portal
+import MasterRoute from './components/layout/MasterRoute';
+import MasterPortalPage from './pages/master/MasterPortalPage';
+
 function ProtectedRoute({ children }) {
   const { isAuthenticated, loading } = useAuth();
   if (loading) return <Spinner text="Memverifikasi..." />;
@@ -64,6 +68,16 @@ function AppRoutes() {
         <Route path="reports" element={<ReportPage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>
+
+      {/* Master Superadmin Route (Multi-tier Security Protected) */}
+      <Route
+        path="/master-portal"
+        element={
+          <MasterRoute>
+            <MasterPortalPage />
+          </MasterRoute>
+        }
+      />
 
       {/* Landing Page */}
       <Route path="/" element={<LandingPage />} />

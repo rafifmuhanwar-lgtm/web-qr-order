@@ -5,9 +5,11 @@ import { getStore } from '../../services/storeService';
 import { applyThemeColor } from '../../utils/themeUtils';
 import { downloadReceiptPNG } from '../../utils/receiptGenerator';
 import { parseOrderDelivery, parseStoreConfig, buildGoogleMapsRouteUrl } from '../../utils/deliveryUtils';
-import { Clock, ChefHat, CheckCircle2, Package, QrCode, Banknote, Download, MapPin, Bike, ShoppingBag, Phone, Navigation } from 'lucide-react';
+import { getPayhookConfig } from '../../services/payhookService';
+import { Clock, ChefHat, CheckCircle2, Package, QrCode, Banknote, Download, MapPin, Bike, ShoppingBag, Phone, Navigation, Copy, RefreshCw } from 'lucide-react';
 import Spinner from '../../components/ui/Spinner';
 import OrderChatBox from '../../components/chat/OrderChatBox';
+import toast from 'react-hot-toast';
 
 export default function OrderStatusPage() {
     const { orderId } = useParams();
@@ -184,30 +186,85 @@ export default function OrderStatusPage() {
                 </div>
             )}
 
-            {/* QRIS Payment Section */}
+            {/* Payhook QRIS Payment Section */}
             {order.paymentMethod === 'qris' && order.paymentStatus !== 'paid' && (
-                <div className="bg-white rounded-2xl border border-border p-5 shadow-sm">
-                    <div className="flex items-center gap-2 mb-3">
-                        <QrCode className="w-5 h-5 text-primary" />
-                        <h3 className="font-bold text-secondary">Pembayaran QRIS</h3>
+                <div className="bg-white rounded-3xl border border-border p-5 shadow-sm text-center animate-fade-in space-y-4">
+                    {/* Payhook Merchant Header */}
+                    <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3">
+                        <h4 className="font-bold text-xs text-secondary tracking-wide uppercase">
+                            {getPayhookConfig().merchantName}
+                        </h4>
+                        <p className="text-[10px] text-slate-500 mt-0.5">{getPayhookConfig().address}</p>
+                        <p className="text-[10px] font-mono font-semibold text-primary mt-1">
+                            NMID: {getPayhookConfig().nmid}
+                        </p>
                     </div>
-                    {qrisUrl ? (
-                        <div className="text-center">
-                            <img
-                                src={qrisUrl}
-                                alt="QRIS"
-                                className="w-full max-w-[280px] mx-auto rounded-xl border border-border shadow-sm mb-3"
-                            />
-                            <p className="text-sm text-slate-500">Scan QR code di atas untuk membayar</p>
-                            <p className="text-primary font-bold text-lg mt-2">{formatPrice(order.totalPrice)}</p>
+
+                    {/* QR Code Container */}
+                    <div className="relative inline-block mx-auto p-3 bg-white rounded-2xl border-2 border-slate-200 shadow-sm">
+                        <img
+                            src={qrisUrl || getPayhookConfig().qrisImageUrl}
+                            alt="QRIS Payhook"
+                            className="w-full max-w-[260px] mx-auto rounded-xl object-contain"
+                        />
+                    </div>
+
+                    {/* Nominal Box */}
+                    <div className="bg-orange-50 border border-orange-200/80 rounded-2xl p-3.5 space-y-1">
+                        <span className="text-[11px] font-medium text-orange-800">Total yang Harus Dibayar:</span>
+                        <div className="flex items-center justify-center gap-2">
+                            <span className="text-2xl font-black text-orange-600 font-mono tracking-tight">
+                                {formatPrice(order.totalPrice)}
+                            </span>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    navigator.clipboard.writeText(String(order.totalPrice));
+                                    toast.success('Nominal disalin!');
+                                }}
+                                className="p-1 text-orange-600 hover:text-orange-800 hover:bg-orange-100 rounded-lg transition-colors cursor-pointer"
+                                title="Salin Nominal"
+                            >
+                                <Copy className="w-4 h-4" />
+                            </button>
                         </div>
-                    ) : (
-                        <div className="text-center py-6 text-slate-400">
-                            <QrCode className="w-10 h-10 mx-auto mb-2 opacity-50" />
-                            <p className="text-sm">QRIS belum tersedia</p>
-                            <p className="text-xs mt-1">Silakan bayar di kasir</p>
-                        </div>
-                    )}
+                        <p className="text-[10px] text-orange-700/80">
+                            Transfer persis sesuai nominal agar pembayaran terdeteksi otomatis oleh sistem Payhook.
+                        </p>
+                    </div>
+
+                    {/* Instructions */}
+                    <div className="text-[11px] text-slate-400 space-y-1">
+                        <p>Dapat dibayar dengan GoPay, OVO, ShopeePay, DANA, BCA, Livin, atau m-Banking apapun.</p>
+                    </div>
+
+                    {/* Status Check Button */}
+                    <button
+                        type="button"
+                        onClick={() => {
+                            toast.loading('Memeriksa mutasi pembayaran...', { id: 'check_pay' });
+                            setTimeout(() => {
+                                toast.dismiss('check_pay');
+                                if (order.paymentStatus === 'paid') {
+                                    toast.success('Pembayaran telah lunas!');
+                                } else {
+                                    toast('Menunggu verifikasi pembayaran...', { icon: '⏳' });
+                                }
+                            }, 800);
+                        }}
+                        className="w-full py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                        <RefreshCw className="w-3.5 h-3.5 text-primary" />
+                        <span>Cek Status Pembayaran</span>
+                    </button>
+                </div>
+            )}
+
+            {order.paymentMethod === 'qris' && order.paymentStatus === 'paid' && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-center text-emerald-800 animate-fade-in space-y-1">
+                    <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
+                    <h4 className="font-bold text-sm">Pembayaran QRIS Berhasil!</h4>
+                    <p className="text-xs text-emerald-700">Terima kasih, pembayaran Anda telah diterima sistem Payhook.</p>
                 </div>
             )}
 
