@@ -70,12 +70,12 @@ export default function MapPicker({
             dragging: !readOnly,
         });
 
-        // CartoDB Voyager tiles (Google Maps style)
+        // OpenStreetMap Official Tiles (100% Free, No API Key Required)
         L.tileLayer(
-            'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+            'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
             {
                 maxZoom: 19,
-                attribution: '&copy; OpenStreetMap, &copy; CARTO',
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
             }
         ).addTo(map);
 
@@ -182,3 +182,4 @@ export default function MapPicker({
         </div>
     );
 }
+

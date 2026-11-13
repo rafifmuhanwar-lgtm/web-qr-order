@@ -366,7 +366,7 @@ export default function CartPage() {
                                 >
                                     <Bike className={`w-6 h-6 mx-auto mb-1.5 ${orderType === 'delivery' ? 'text-primary' : 'text-slate-400'}`} />
                                     <p className={`text-xs font-bold ${orderType === 'delivery' ? 'text-primary' : 'text-slate-700'}`}>Antar ke Rumah</p>
-                                    <p className="text-[10px] text-slate-400 mt-0.5">Di antar Kurir</p>
+                                    <p className="text-[10px] text-slate-400 mt-0.5">Di antar Kurir (Delivery)</p>
                                 </button>
                             </div>
 
