@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { THEME_COLORS, COLOR_OPTIONS, applyThemeColor } from '../../utils/themeUtils';
+import { parseStoreConfig } from '../../utils/deliveryUtils';
 import { getStore, updateStore } from '../../services/storeService';
 import { uploadMenuImage } from '../../services/menuService';
-import { Store, Palette, Save, Check, Pipette, MessageSquare, Receipt, Upload } from 'lucide-react';
+import { Store, Palette, Save, Check, Pipette, MessageSquare, Receipt, Upload, Bike, MapPin, Phone } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Spinner from '../../components/ui/Spinner';
+import MapPicker from '../../components/ui/MapPicker';
 import toast from 'react-hot-toast';
 
 export default function SettingsPage() {
@@ -17,6 +19,14 @@ export default function SettingsPage() {
     const [address, setAddress] = useState('');
     const [themeColor, setThemeColor] = useState('orange');
     const [customColor, setCustomColor] = useState('#6366f1');
+
+    // Delivery & Location settings
+    const [storeLat, setStoreLat] = useState(-6.2088);
+    const [storeLng, setStoreLng] = useState(106.8456);
+    const [freeDistanceKm, setFreeDistanceKm] = useState('5');
+    const [feePerKm, setFeePerKm] = useState('2500');
+    const [maxDistanceKm, setMaxDistanceKm] = useState('15');
+    const [whatsapp, setWhatsapp] = useState('');
 
     // New fields
     const [logoUrl, setLogoUrl] = useState('');
@@ -30,12 +40,20 @@ export default function SettingsPage() {
                 const data = await getStore(storeId);
                 if (data) {
                     setStoreName(data.name || '');
-                    setAddress(data.address || '');
                     setThemeColor(data.themeColor || 'orange');
                     setCustomColor(data.customColor || '#6366f1');
                     setLogoUrl(data.logoUrl || '');
                     setWelcomeMessage(data.welcomeMessage || '');
                     setReceiptFooter(data.receiptFooter || '');
+
+                    const cfg = parseStoreConfig(data);
+                    setAddress(cfg.address || '');
+                    if (cfg.lat) setStoreLat(cfg.lat);
+                    if (cfg.lng) setStoreLng(cfg.lng);
+                    setFreeDistanceKm(String(cfg.freeDistanceKm ?? 5));
+                    setFeePerKm(String(cfg.feePerKm ?? 2500));
+                    setMaxDistanceKm(String(cfg.maxDistanceKm ?? 15));
+                    setWhatsapp(cfg.whatsapp || '');
                 }
             } catch {
                 toast.error('Gagal memuat data toko');
@@ -64,9 +82,19 @@ export default function SettingsPage() {
     const handleSave = async () => {
         setSaving(true);
         try {
+            const deliveryConfig = {
+                address,
+                lat: storeLat,
+                lng: storeLng,
+                freeDistanceKm: Number(freeDistanceKm) || 0,
+                feePerKm: Number(feePerKm) || 0,
+                maxDistanceKm: Number(maxDistanceKm) || 15,
+                whatsapp,
+            };
+
             await updateStore(storeId, {
                 name: storeName,
-                address,
+                address: JSON.stringify(deliveryConfig),
                 themeColor,
                 customColor: themeColor === 'custom' ? customColor : null,
                 logoUrl,
@@ -167,6 +195,87 @@ export default function SettingsPage() {
                             />
                         </label>
                     )}
+                </div>
+            </div>
+
+            {/* Delivery & Map Settings */}
+            <div className="bg-white rounded-2xl border border-border p-5 shadow-sm space-y-4">
+                <div className="flex items-center gap-2 mb-1">
+                    <Bike className="w-5 h-5 text-primary" />
+                    <div>
+                        <h2 className="font-bold text-secondary">Lokasi Resto & Aturan Ongkos Kirim</h2>
+                        <p className="text-xs text-slate-400">Tentukan titik resto dan skema tarif delivery mandiri</p>
+                    </div>
+                </div>
+
+                <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5 flex items-center gap-1.5">
+                        <MapPin className="w-4 h-4 text-primary" /> Titik Peta Resto (Untuk Menghitung Jarak Pelanggan)
+                    </label>
+                    <MapPicker
+                        initialLat={storeLat}
+                        initialLng={storeLng}
+                        onLocationSelect={({ lat, lng, address: addr }) => {
+                            setStoreLat(lat);
+                            setStoreLng(lng);
+                            if (!address && addr) setAddress(addr);
+                        }}
+                        height="220px"
+                    />
+                    <p className="text-xs text-slate-400 mt-1">
+                        Geser pin atau klik &apos;Lokasi Saya&apos; agar sistem mengetahui titik awal pengantaran resto.
+                    </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                    <Input
+                        label="Nomor WhatsApp Resto"
+                        value={whatsapp}
+                        onChange={(e) => setWhatsapp(e.target.value)}
+                        placeholder="Contoh: 081234567890"
+                        helperText="Untuk pelanggan menghubungi pihak resto via WhatsApp"
+                    />
+                    <Input
+                        label="Batas Jarak Gratis Ongkir (Km)"
+                        type="number"
+                        min="0"
+                        value={freeDistanceKm}
+                        onChange={(e) => setFreeDistanceKm(e.target.value)}
+                        placeholder="5"
+                        helperText="Misal 5 Km: Jarak 0 - 5 km gratis ongkir"
+                    />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Input
+                        label="Tarif Ongkir per Km Tambahan (Rp)"
+                        type="number"
+                        min="0"
+                        step="500"
+                        value={feePerKm}
+                        onChange={(e) => setFeePerKm(e.target.value)}
+                        placeholder="2500"
+                        helperText="Dikenakan per km jika melebihi batas gratis"
+                    />
+                    <Input
+                        label="Jangkauan Maksimal Pengantaran (Km)"
+                        type="number"
+                        min="1"
+                        value={maxDistanceKm}
+                        onChange={(e) => setMaxDistanceKm(e.target.value)}
+                        placeholder="15"
+                        helperText="Order delivery ditolak jika melebihi batas ini"
+                    />
+                </div>
+
+                <div className="bg-orange-50/70 border border-orange-200/60 rounded-xl p-3 text-xs text-orange-950">
+                    <span className="font-bold">Ringkasan Skema:</span> Pengantaran dalam jarak{' '}
+                    <span className="font-semibold text-orange-600">0 - {freeDistanceKm || 0} km</span>{' '}
+                    gratis (Rp 0). Di atas {freeDistanceKm || 0} km dikenakan{' '}
+                    <span className="font-semibold text-orange-600">
+                        Rp {Number(feePerKm || 0).toLocaleString('id-ID')}/km
+                    </span>
+                    . Jangkauan antar maksimal <span className="font-semibold text-orange-600">{maxDistanceKm || 15} km</span>.
                 </div>
             </div>
 

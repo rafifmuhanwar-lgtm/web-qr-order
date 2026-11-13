@@ -2,10 +2,46 @@ import { supabase } from '../config/supabase';
 
 const COLLECTION = 'orders';
 
+export const ORDER_STATUSES = {
+    PENDING: 'pending',
+    PROCESSING: 'processing',
+    ON_DELIVERY: 'on_delivery',
+    READY: 'ready',
+    COMPLETED: 'completed',
+    CANCELLED: 'cancelled',
+};
+
 export const createOrder = async (orderData) => {
+    // Pack all delivery metadata inside notes to ensure 100% schema compatibility
+    const deliveryMeta = {
+        phone: orderData.customerPhone || null,
+        address: orderData.deliveryAddress || null,
+        lat: orderData.customerCoordinates?.lat || null,
+        lng: orderData.customerCoordinates?.lng || null,
+        distanceKm: orderData.distanceKm || 0,
+        shippingFee: orderData.shippingFee || 0,
+        courierTip: orderData.courierTip || 0,
+        userNotes: orderData.userNotes || orderData.notes || '',
+        chats: [],
+    };
+
+    const corePayload = {
+        storeId: orderData.storeId,
+        tableId: orderData.tableId || null,
+        tableNumber: orderData.tableNumber || null,
+        customerName: orderData.customerName || null,
+        items: orderData.items || [],
+        totalPrice: orderData.totalPrice || 0,
+        orderType: orderData.orderType || 'dine_in',
+        paymentMethod: orderData.paymentMethod || 'qris',
+        paymentStatus: orderData.paymentStatus || 'pending',
+        status: orderData.status || 'pending',
+        notes: JSON.stringify(deliveryMeta),
+    };
+
     const { data: result, error } = await supabase
         .from(COLLECTION)
-        .insert([{ ...orderData, status: 'pending' }])
+        .insert([corePayload])
         .select()
         .single();
     if (error) throw error;
@@ -79,6 +115,36 @@ export const updateOrderStatus = async (orderId, status) => {
         .update({ status })
         .eq('id', orderId);
     if (error) throw error;
+};
+
+export const sendOrderChatMessage = async (orderId, currentNotes, message) => {
+    let parsedNotes = {};
+    try {
+        parsedNotes = typeof currentNotes === 'string' && currentNotes.startsWith('{')
+            ? JSON.parse(currentNotes)
+            : { userNotes: currentNotes || '' };
+    } catch {
+        parsedNotes = { userNotes: currentNotes || '' };
+    }
+
+    const chats = Array.isArray(parsedNotes.chats) ? parsedNotes.chats : [];
+    chats.push({
+        id: Date.now().toString(),
+        sender: message.sender, // 'customer' | 'resto'
+        senderName: message.senderName || (message.sender === 'resto' ? 'Pihak Resto' : 'Pelanggan'),
+        text: message.text,
+        timestamp: new Date().toISOString(),
+    });
+
+    parsedNotes.chats = chats;
+
+    const { error } = await supabase
+        .from(COLLECTION)
+        .update({ notes: JSON.stringify(parsedNotes) })
+        .eq('id', orderId);
+
+    if (error) throw error;
+    return chats;
 };
 
 export const updateOrderPayment = async (orderId, paymentData) => {

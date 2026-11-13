@@ -1,19 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
 import { subscribeToOrderStatus } from '../../services/orderService';
 import { getStore } from '../../services/storeService';
 import { applyThemeColor } from '../../utils/themeUtils';
 import { downloadReceiptPNG } from '../../utils/receiptGenerator';
-import { Clock, ChefHat, CheckCircle2, Package, QrCode, Banknote, Download, MapPin } from 'lucide-react';
+import { parseOrderDelivery, parseStoreConfig, buildGoogleMapsRouteUrl } from '../../utils/deliveryUtils';
+import { Clock, ChefHat, CheckCircle2, Package, QrCode, Banknote, Download, MapPin, Bike, ShoppingBag, Phone, Navigation } from 'lucide-react';
 import Spinner from '../../components/ui/Spinner';
-
-const steps = [
-    { key: 'pending', label: 'Menunggu', sublabel: 'Pesanan diterima', icon: Clock, color: 'text-amber-500' },
-    { key: 'processing', label: 'Diproses', sublabel: 'Sedang disiapkan', icon: ChefHat, color: 'text-blue-500' },
-    { key: 'completed', label: 'Selesai', sublabel: 'Siap diambil', icon: CheckCircle2, color: 'text-emerald-500' },
-];
-
-const stepIndex = { pending: 0, processing: 1, completed: 2 };
+import OrderChatBox from '../../components/chat/OrderChatBox';
 
 export default function OrderStatusPage() {
     const { orderId } = useParams();
@@ -25,24 +19,26 @@ export default function OrderStatusPage() {
     const [storeAddress, setStoreAddress] = useState('');
     const [receiptFooter, setReceiptFooter] = useState('');
     const [logoUrl, setLogoUrl] = useState('');
+    const [storeWhatsapp, setStoreWhatsapp] = useState('');
 
     useEffect(() => {
         const unsubscribe = subscribeToOrderStatus(orderId, (data) => {
             setOrder(data);
             setLoading(false);
-            // Fetch store data for QRIS and theme
             if (data.storeId) {
                 getStore(data.storeId).then((store) => {
                     if (store?.qrisUrl) {
                         setQrisUrl((prev) => prev || store.qrisUrl);
                     }
                     if (store?.name) setStoreName(store.name);
-                    if (store?.address) setStoreAddress(store.address);
                     if (store?.receiptFooter) setReceiptFooter(store.receiptFooter);
                     if (store?.logoUrl) setLogoUrl(store.logoUrl);
                     if (store?.themeColor) {
                         applyThemeColor(store.themeColor, store.customColor);
                     }
+                    const cfg = parseStoreConfig(store);
+                    setStoreAddress(cfg.address || '');
+                    setStoreWhatsapp(cfg.whatsapp || '');
                 });
             }
         }, (error) => {
@@ -51,6 +47,58 @@ export default function OrderStatusPage() {
         });
         return unsubscribe;
     }, [orderId]);
+
+    const delivery = useMemo(() => parseOrderDelivery(order), [order]);
+
+    // 4-Step Dynamic Flow
+    const steps = useMemo(() => {
+        const isDelivery = order?.orderType === 'delivery';
+        const isTakeAway = order?.orderType === 'take_away';
+
+        return [
+            {
+                key: 'pending',
+                label: 'Pesanan Masuk',
+                sublabel: 'Menunggu konfirmasi resto',
+                icon: Clock,
+                color: 'text-amber-500',
+            },
+            {
+                key: 'processing',
+                label: 'Sedang Dibuat',
+                sublabel: 'Dapur sedang memasak makanan',
+                icon: ChefHat,
+                color: 'text-blue-500',
+            },
+            {
+                key: isDelivery ? 'on_delivery' : 'ready',
+                label: isDelivery ? 'Sedang Diantar' : isTakeAway ? 'Siap Diambil' : 'Siap Disajikan',
+                sublabel: isDelivery ? 'Kurir meluncur ke rumahmu' : 'Bisa diambil di kasir',
+                icon: isDelivery ? Bike : ShoppingBag,
+                color: 'text-orange-500',
+            },
+            {
+                key: 'completed',
+                label: 'Pesanan Selesai',
+                sublabel: 'Pesanan tiba & telah diterima',
+                icon: CheckCircle2,
+                color: 'text-emerald-500',
+            },
+        ];
+    }, [order?.orderType]);
+
+    const stepIndex = useMemo(() => {
+        const isDelivery = order?.orderType === 'delivery';
+        const thirdKey = isDelivery ? 'on_delivery' : 'ready';
+        return {
+            pending: 0,
+            processing: 1,
+            [thirdKey]: 2,
+            ready: 2,
+            on_delivery: 2,
+            completed: 3,
+        };
+    }, [order?.orderType]);
 
     const formatPrice = (price) => {
         return new Intl.NumberFormat('id-ID', {
@@ -102,15 +150,36 @@ export default function OrderStatusPage() {
             </div>
 
             {/* Delivery / Take Away Info Box */}
-            {order.orderType === 'delivery' && order.deliveryAddress && (
-                <div className="bg-white rounded-2xl border border-border p-4 shadow-sm text-xs">
-                    <div className="flex items-center gap-2 mb-1 text-secondary font-bold">
-                        <MapPin className="w-4 h-4 text-primary" />
-                        <span>Alamat Pengantaran:</span>
+            {order.orderType === 'delivery' && (delivery.address || order.deliveryAddress) && (
+                <div className="bg-white rounded-2xl border border-border p-4 shadow-sm text-xs space-y-2">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 text-secondary font-bold">
+                            <MapPin className="w-4 h-4 text-primary" />
+                            <span>Alamat Pengantaran:</span>
+                        </div>
+                        {delivery.distanceKm > 0 && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                                Jarak: {delivery.distanceKm} km
+                            </span>
+                        )}
                     </div>
-                    <p className="text-slate-600 leading-relaxed pl-6">{order.deliveryAddress}</p>
-                    {order.customerPhone && (
-                        <p className="text-slate-400 pl-6 mt-1 font-mono">No. WhatsApp: {order.customerPhone}</p>
+                    <p className="text-slate-600 leading-relaxed pl-5 font-medium">{delivery.address || order.deliveryAddress}</p>
+                    {delivery.phone && (
+                        <p className="text-slate-500 pl-5 font-mono">No. WhatsApp: {delivery.phone}</p>
+                    )}
+
+                    {delivery.lat && delivery.lng && (
+                        <div className="pt-1 pl-5">
+                            <a
+                                href={buildGoogleMapsRouteUrl(delivery.lat, delivery.lng)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold rounded-xl border border-blue-200 transition-colors"
+                            >
+                                <Navigation className="w-3.5 h-3.5 text-blue-600" />
+                                <span>Buka Titik di Google Maps</span>
+                            </a>
+                        </div>
                     )}
                 </div>
             )}
@@ -245,17 +314,45 @@ export default function OrderStatusPage() {
                             <span className="font-medium text-slate-600">{formatPrice(item.price * item.quantity)}</span>
                         </div>
                     ))}
-                    {order.notes && (
+
+                    {/* Breakdown Ongkir & Tip */}
+                    {order.orderType === 'delivery' && (
+                        <div className="pt-2 border-t border-border space-y-1.5 text-xs text-slate-500">
+                            <div className="flex justify-between">
+                                <span>Ongkos Kirim ({delivery.distanceKm > 0 ? `${delivery.distanceKm} km` : 'Pengantaran'})</span>
+                                <span className={delivery.shippingFee > 0 ? 'font-medium text-slate-700' : 'font-bold text-emerald-600'}>
+                                    {delivery.shippingFee > 0 ? formatPrice(delivery.shippingFee) : 'GRATIS'}
+                                </span>
+                            </div>
+                            {delivery.courierTip > 0 && (
+                                <div className="flex justify-between">
+                                    <span>Tip untuk Kurir</span>
+                                    <span className="font-medium text-primary">{formatPrice(delivery.courierTip)}</span>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {delivery.userNotes && (
                         <div className="pt-2 border-t border-border">
-                            <p className="text-xs text-slate-500">💬 {order.notes}</p>
+                            <p className="text-xs text-slate-500">📝 Catatan: {delivery.userNotes}</p>
                         </div>
                     )}
                     <div className="pt-3 border-t border-border flex justify-between font-bold">
-                        <span className="text-secondary">Total</span>
+                        <span className="text-secondary">Total Tagihan</span>
                         <span className="text-primary text-lg">{formatPrice(order.totalPrice)}</span>
                     </div>
                 </div>
             </div>
+
+            {/* In-App Realtime Chat with Resto / Kurir */}
+            <OrderChatBox
+                orderId={orderId}
+                currentNotes={order.notes}
+                role="customer"
+                senderName={order.customerName || 'Pelanggan'}
+                targetWhatsapp={storeWhatsapp}
+            />
 
             {/* Download Receipt Button — show when payment completed or for QRIS */}
             {(order.amountPaid || order.paymentMethod === 'qris') && (

@@ -1,13 +1,14 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { createOrder } from '../../services/orderService';
+import { getStore } from '../../services/storeService';
+import { parseStoreConfig, calculateDistanceKm, calculateShippingFee } from '../../utils/deliveryUtils';
 import { supabase } from '../../config/supabase';
 import {
     ArrowLeft,
     Minus,
     Plus,
     Trash2,
-    StickyNote,
     ChefHat,
     QrCode,
     Banknote,
@@ -17,9 +18,13 @@ import {
     MapPin,
     Phone,
     User,
-    CheckCircle2
+    CheckCircle2,
+    HeartHandshake,
+    AlertCircle,
+    Sparkles
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
+import MapPicker from '../../components/ui/MapPicker';
 import toast from 'react-hot-toast';
 
 export default function CartPage() {
@@ -42,9 +47,59 @@ export default function CartPage() {
     const [orderType, setOrderType] = useState(isOnlineOrder ? 'take_away' : 'dine_in');
     const [paymentMethod, setPaymentMethod] = useState(isOnlineOrder ? 'qris' : '');
 
+    // Delivery & Coordinates State
+    const [storeConfig, setStoreConfig] = useState(null);
+    const [customerCoords, setCustomerCoords] = useState(null);
+    const [courierTip, setCourierTip] = useState(0);
+    const [customTipActive, setCustomTipActive] = useState(false);
+    const [customTipInput, setCustomTipInput] = useState('');
+
+    useEffect(() => {
+        if (storeId) {
+            getStore(storeId).then((store) => {
+                if (store) {
+                    const cfg = parseStoreConfig(store);
+                    setStoreConfig(cfg);
+                }
+            });
+        }
+    }, [storeId]);
+
     const cartTotal = useMemo(() => {
         return cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
     }, [cart]);
+
+    // Calculate Distance & Shipping Fee
+    const distanceKm = useMemo(() => {
+        if (orderType !== 'delivery' || !customerCoords || !storeConfig?.lat || !storeConfig?.lng) {
+            return 0;
+        }
+        return calculateDistanceKm(
+            storeConfig.lat,
+            storeConfig.lng,
+            customerCoords.lat,
+            customerCoords.lng
+        );
+    }, [orderType, customerCoords, storeConfig]);
+
+    const shippingCalculation = useMemo(() => {
+        if (orderType !== 'delivery') return { allowed: true, fee: 0, isFree: true, message: '' };
+        if (!customerCoords) {
+            return {
+                allowed: true,
+                fee: 0,
+                isFree: false,
+                message: 'Tentukan titik lokasi di peta untuk hitung ongkir',
+            };
+        }
+        return calculateShippingFee(distanceKm, storeConfig);
+    }, [orderType, customerCoords, distanceKm, storeConfig]);
+
+    const finalTotal = useMemo(() => {
+        const shipping = orderType === 'delivery' ? (shippingCalculation.fee || 0) : 0;
+        const tip = orderType === 'delivery' ? (Number(courierTip) || 0) : 0;
+        return cartTotal + shipping + tip;
+    }, [cartTotal, orderType, shippingCalculation.fee, courierTip]);
 
     const formatPrice = (price) => {
         return new Intl.NumberFormat('id-ID', {
@@ -87,9 +142,19 @@ export default function CartPage() {
                 toast.error('Mohon isi nomor WhatsApp aktif');
                 return;
             }
-            if (orderType === 'delivery' && !deliveryAddress.trim()) {
-                toast.error('Mohon isi alamat pengiriman lengkap');
-                return;
+            if (orderType === 'delivery') {
+                if (!deliveryAddress.trim()) {
+                    toast.error('Mohon isi alamat pengiriman lengkap');
+                    return;
+                }
+                if (!customerCoords) {
+                    toast.error('Mohon tentukan titik lokasi rumah pada peta');
+                    return;
+                }
+                if (!shippingCalculation.allowed) {
+                    toast.error(shippingCalculation.message || 'Alamat di luar jangkauan pengantaran');
+                    return;
+                }
             }
         } else {
             if (!orderType) {
@@ -114,6 +179,10 @@ export default function CartPage() {
                 customerName: customerName.trim() || (tableId ? `Tamu Meja #${String(tableId).padStart(3, '0')}` : 'Pelanggan Online'),
                 customerPhone: customerPhone ? customerPhone.trim() : null,
                 deliveryAddress: finalOrderType === 'delivery' ? deliveryAddress.trim() : null,
+                shippingFee: finalOrderType === 'delivery' ? (shippingCalculation.fee || 0) : 0,
+                courierTip: finalOrderType === 'delivery' ? (Number(courierTip) || 0) : 0,
+                distanceKm: finalOrderType === 'delivery' ? distanceKm : 0,
+                customerCoordinates: finalOrderType === 'delivery' ? customerCoords : null,
                 items: cart.map((item) => ({
                     menuId: item.id,
                     name: item.name,
@@ -121,8 +190,9 @@ export default function CartPage() {
                     quantity: item.quantity,
                     notes: item.notes || '',
                 })),
-                totalPrice: cartTotal,
+                totalPrice: finalTotal,
                 notes: generalNotes,
+                userNotes: generalNotes,
                 orderType: finalOrderType,
                 paymentMethod: selectedPayment,
                 paymentStatus: selectedPayment === 'cash' ? 'pay_at_counter' : 'pending',
@@ -140,7 +210,7 @@ export default function CartPage() {
 
                     const { data: qrisData, error } = await supabase.functions.invoke('create-qris', {
                         body: {
-                            amount: cartTotal,
+                            amount: finalTotal,
                             description: qrisDesc,
                         }
                     });
@@ -255,7 +325,7 @@ export default function CartPage() {
                         <textarea
                             value={generalNotes}
                             onChange={(e) => setGeneralNotes(e.target.value)}
-                            placeholder="Contoh: Sambal dipisah, jangan pakai daun bawang, es sedikit..."
+                            placeholder="Contoh: Sambal dipisah, es sedikit..."
                             className="w-full p-3 rounded-xl border border-border text-sm resize-none h-18 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
                         />
                     </div>
@@ -296,7 +366,7 @@ export default function CartPage() {
                                 >
                                     <Bike className={`w-6 h-6 mx-auto mb-1.5 ${orderType === 'delivery' ? 'text-primary' : 'text-slate-400'}`} />
                                     <p className={`text-xs font-bold ${orderType === 'delivery' ? 'text-primary' : 'text-slate-700'}`}>Antar ke Rumah</p>
-                                    <p className="text-[10px] text-slate-400 mt-0.5">Kirim via kurir/ojol</p>
+                                    <p className="text-[10px] text-slate-400 mt-0.5">Di antar Kurir</p>
                                 </button>
                             </div>
 
@@ -334,17 +404,143 @@ export default function CartPage() {
                                 </div>
 
                                 {orderType === 'delivery' && (
-                                    <div className="animate-fade-in">
-                                        <label className="block text-xs font-medium text-slate-700 mb-1">Alamat Pengiriman & Patokan</label>
-                                        <div className="relative">
-                                            <MapPin className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
-                                            <textarea
-                                                required
-                                                value={deliveryAddress}
-                                                onChange={(e) => setDeliveryAddress(e.target.value)}
-                                                placeholder="Jl. Mawar No. 12, RT 02/03 (Pagar hitam samping pos satpam)"
-                                                className="w-full pl-9 pr-3 py-2 rounded-xl border border-border text-xs resize-none h-20 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                                    <div className="space-y-3 animate-fade-in pt-1">
+                                        <div>
+                                            <div className="flex items-center justify-between mb-1">
+                                                <label className="block text-xs font-semibold text-slate-700 flex items-center gap-1">
+                                                    <MapPin className="w-3.5 h-3.5 text-primary" />
+                                                    <span>Titik Lokasi Pengantaran (Peta)</span>
+                                                </label>
+                                                <span className="text-[10px] text-slate-400">Gratis & Presisi</span>
+                                            </div>
+                                            <MapPicker
+                                                initialLat={storeConfig?.lat || -6.2088}
+                                                initialLng={storeConfig?.lng || 106.8456}
+                                                onLocationSelect={({ lat, lng, address }) => {
+                                                    setCustomerCoords({ lat, lng });
+                                                    if (!deliveryAddress || deliveryAddress.length < 5) {
+                                                        setDeliveryAddress(address);
+                                                    }
+                                                }}
+                                                height="200px"
                                             />
+                                            <p className="text-[10px] text-slate-400 mt-1">
+                                                Klik tombol <span className="font-semibold text-slate-600">&apos;Lokasi Saya&apos;</span> agar pin otomatis melompat ke posisi Anda saat ini.
+                                            </p>
+                                        </div>
+
+                                        {/* Status Kalkulasi Jarak & Ongkir */}
+                                        {customerCoords && (
+                                            <div
+                                                className={`p-3 rounded-xl border text-xs transition-all ${
+                                                    !shippingCalculation.allowed
+                                                        ? 'bg-red-50 border-red-200 text-red-800'
+                                                        : shippingCalculation.isFree
+                                                        ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                                                        : 'bg-primary/5 border-primary/20 text-secondary'
+                                                }`}
+                                            >
+                                                <div className="flex items-center justify-between font-bold">
+                                                    <span className="flex items-center gap-1.5">
+                                                        <Bike className="w-4 h-4 text-primary" />
+                                                        <span>Jarak Antar: {distanceKm} km</span>
+                                                    </span>
+                                                    <span>
+                                                        {!shippingCalculation.allowed
+                                                            ? 'Jarak Terlalu Jauh'
+                                                            : shippingCalculation.isFree
+                                                            ? 'GRATIS ONGKIR'
+                                                            : formatPrice(shippingCalculation.fee)}
+                                                    </span>
+                                                </div>
+                                                <p className="text-[11px] mt-1 opacity-80">{shippingCalculation.message}</p>
+                                            </div>
+                                        )}
+
+                                        <div>
+                                            <label className="block text-xs font-medium text-slate-700 mb-1">
+                                                Alamat Lengkap & Patokan Rumah
+                                            </label>
+                                            <div className="relative">
+                                                <MapPin className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
+                                                <textarea
+                                                    required
+                                                    value={deliveryAddress}
+                                                    onChange={(e) => setDeliveryAddress(e.target.value)}
+                                                    placeholder="Contoh: Jl. Mawar No. 12, RT 02/03 (Pagar hitam, samping toko kelontong Bu Siti)"
+                                                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-border text-xs resize-none h-20 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Tip untuk Kurir */}
+                                        <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3 space-y-2">
+                                            <div className="flex items-center justify-between">
+                                                <label className="text-xs font-bold text-secondary flex items-center gap-1.5">
+                                                    <HeartHandshake className="w-4 h-4 text-rose-500" />
+                                                    <span>Beri Tip untuk Kurir?</span>
+                                                </label>
+                                                <span className="text-[10px] text-slate-400">100% untuk kurir</span>
+                                            </div>
+                                            <div className="grid grid-cols-4 gap-1.5">
+                                                {[0, 2000, 5000, 10000].map((tipVal) => (
+                                                    <button
+                                                        key={tipVal}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setCourierTip(tipVal);
+                                                            setCustomTipActive(false);
+                                                        }}
+                                                        className={`py-1.5 px-2 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                                                            !customTipActive && courierTip === tipVal
+                                                                ? 'bg-primary text-white border-primary shadow-xs'
+                                                                : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
+                                                        }`}
+                                                    >
+                                                        {tipVal === 0 ? 'Tanpa Tip' : `Rp ${(tipVal / 1000)}rb`}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <div className="pt-1">
+                                                {!customTipActive ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setCustomTipActive(true);
+                                                            setCourierTip(Number(customTipInput) || 0);
+                                                        }}
+                                                        className="text-[11px] text-primary hover:underline font-semibold cursor-pointer"
+                                                    >
+                                                        + Masukkan Nominal Tip Lain
+                                                    </button>
+                                                ) : (
+                                                    <div className="flex items-center gap-2">
+                                                        <input
+                                                            type="number"
+                                                            step="1000"
+                                                            min="0"
+                                                            value={customTipInput}
+                                                            onChange={(e) => {
+                                                                const val = e.target.value;
+                                                                setCustomTipInput(val);
+                                                                setCourierTip(Number(val) || 0);
+                                                            }}
+                                                            placeholder="Nominal tip (misal: 15000)"
+                                                            className="flex-1 bg-white border border-border rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-primary"
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setCustomTipActive(false);
+                                                                setCourierTip(0);
+                                                            }}
+                                                            className="text-xs text-slate-400 hover:text-slate-600 px-2"
+                                                        >
+                                                            Batal
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 )}
@@ -439,14 +635,22 @@ export default function CartPage() {
                             <span>{formatPrice(cartTotal)}</span>
                         </div>
                         {orderType === 'delivery' && (
-                            <div className="flex justify-between text-slate-500">
-                                <span>Ongkos Kirim</span>
-                                <span className="text-emerald-600 font-semibold">Dikonfirmasi via WA</span>
+                            <div className="flex justify-between text-slate-500 items-center">
+                                <span>Ongkos Kirim ({distanceKm > 0 ? `${distanceKm} km` : 'Tergantung Jarak'})</span>
+                                <span className={shippingCalculation.isFree ? 'text-emerald-600 font-bold' : 'text-slate-700 font-semibold'}>
+                                    {shippingCalculation.isFree ? 'GRATIS' : formatPrice(shippingCalculation.fee)}
+                                </span>
+                            </div>
+                        )}
+                        {orderType === 'delivery' && courierTip > 0 && (
+                            <div className="flex justify-between text-slate-500 items-center">
+                                <span>Tip Kurir</span>
+                                <span className="text-primary font-semibold">{formatPrice(courierTip)}</span>
                             </div>
                         )}
                         <div className="border-t border-border pt-2 flex justify-between font-bold text-sm text-secondary">
                             <span>Total Tagihan</span>
-                            <span className="text-primary text-base font-extrabold">{formatPrice(cartTotal)}</span>
+                            <span className="text-primary text-base font-extrabold">{formatPrice(finalTotal)}</span>
                         </div>
                     </div>
 

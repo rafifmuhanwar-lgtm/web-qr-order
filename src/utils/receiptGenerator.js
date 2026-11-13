@@ -1,9 +1,13 @@
+import { parseOrderDelivery } from './deliveryUtils';
+
 /**
  * Generate and download a professional receipt as PNG using Canvas API.
  */
 export async function downloadReceiptPNG(order, storeName, orderId, storeAddress, receiptFooter, logoUrl) {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
+
+    const delivery = parseOrderDelivery(order);
 
     const W = 420;
     const PAD = 30;
@@ -219,6 +223,18 @@ export async function downloadReceiptPNG(order, storeName, orderId, storeAddress
     text(methodLabel, W - PAD, y, { font: 'bold 13px sans-serif', color: '#333', align: 'right' });
     y += LINE_H;
 
+    // ========== DELIVERY FEES (if any) ==========
+    if (delivery.shippingFee > 0) {
+        text(`Ongkir (${delivery.distanceKm || 0} km)`, PAD, y, { font: '13px sans-serif', color: '#666' });
+        text(fmtPrice(delivery.shippingFee), W - PAD, y, { font: '13px sans-serif', color: '#333', align: 'right' });
+        y += LINE_H;
+    }
+    if (delivery.courierTip > 0) {
+        text('Tip Kurir', PAD, y, { font: '13px sans-serif', color: '#666' });
+        text(fmtPrice(delivery.courierTip), W - PAD, y, { font: '13px sans-serif', color: '#333', align: 'right' });
+        y += LINE_H;
+    }
+
     // ========== BAYAR & KEMBALI (cash only) ==========
     if (hasCashPayment) {
         text('Bayar', PAD, y, { font: '13px sans-serif', color: '#666' });
@@ -244,8 +260,9 @@ export async function downloadReceiptPNG(order, storeName, orderId, storeAddress
     y += LINE_H + 12;
 
     // ========== ORDER NOTES ==========
-    if (hasOrderNotes) {
-        text(`Catatan: ${order.notes}`, PAD, y, { font: 'italic 11px sans-serif', color: '#666', maxW: CONTENT_W });
+    const displayNote = delivery.userNotes || (typeof order.notes === 'string' && !order.notes.startsWith('{') ? order.notes : '');
+    if (displayNote) {
+        text(`Catatan: ${displayNote}`, PAD, y, { font: 'italic 11px sans-serif', color: '#666', maxW: CONTENT_W });
         y += LINE_H;
     }
 

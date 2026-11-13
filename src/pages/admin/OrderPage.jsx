@@ -2,22 +2,39 @@ import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { subscribeToOrders, updateOrderStatus, updateOrderPayment } from '../../services/orderService';
 import { downloadReceiptPNG } from '../../utils/receiptGenerator';
-import { ClipboardList, Clock, ChefHat, CheckCircle2, ArrowRight, X, Banknote, Calculator, Receipt, Download } from 'lucide-react';
+import { parseOrderDelivery, buildGoogleMapsRouteUrl, buildWhatsAppChatUrl } from '../../utils/deliveryUtils';
+import {
+    ClipboardList,
+    Clock,
+    ChefHat,
+    CheckCircle2,
+    ArrowRight,
+    X,
+    Banknote,
+    Receipt,
+    Download,
+    Bike,
+    ShoppingBag,
+    MapPin,
+    Navigation,
+    Phone,
+    MessageCircle,
+    HeartHandshake
+} from 'lucide-react';
 import Badge from '../../components/ui/Badge';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import Button from '../../components/ui/Button';
+import OrderChatBox from '../../components/chat/OrderChatBox';
 import toast from 'react-hot-toast';
 
 const tabs = [
     { key: 'all', label: 'Semua' },
-    { key: 'pending', label: 'Menunggu' },
-    { key: 'processing', label: 'Diproses' },
+    { key: 'pending', label: 'Pesanan Masuk' },
+    { key: 'processing', label: 'Sedang Dimasak' },
+    { key: 'in_transit', label: 'Diantar / Siap' },
     { key: 'completed', label: 'Selesai' },
 ];
-
-const nextStatus = { pending: 'processing', processing: 'completed' };
-const nextLabel = { pending: 'Proses', processing: 'Selesai' };
 
 export default function OrderPage() {
     const { storeId, storeData } = useAuth();
@@ -38,6 +55,12 @@ export default function OrderPage() {
         const unsubscribe = subscribeToOrders(storeId, (data) => {
             setOrders(data);
             setLoading(false);
+            // Auto update detailOrder if open
+            setDetailOrder((prev) => {
+                if (!prev) return null;
+                const found = data.find((o) => o.id === prev.id);
+                return found || prev;
+            });
         }, (error) => {
             console.error('Orders error:', error);
             setLoading(false);
@@ -45,25 +68,50 @@ export default function OrderPage() {
         return unsubscribe;
     }, [storeId]);
 
-    const filteredOrders = activeTab === 'all'
-        ? orders
-        : orders.filter((o) => o.status === activeTab);
+    const filteredOrders = useMemo(() => {
+        if (activeTab === 'all') return orders;
+        if (activeTab === 'in_transit') {
+            return orders.filter((o) => o.status === 'on_delivery' || o.status === 'ready');
+        }
+        return orders.filter((o) => o.status === activeTab);
+    }, [orders, activeTab]);
+
+    const getNextStatusAction = (order) => {
+        const status = order.status;
+        const type = order.orderType;
+
+        if (status === 'pending') {
+            return { next: 'processing', label: 'Mulai Masak 👨‍🍳', color: 'bg-blue-600 hover:bg-blue-700' };
+        }
+        if (status === 'processing') {
+            if (type === 'delivery') {
+                return { next: 'on_delivery', label: 'Kirim Kurir 🛵', color: 'bg-orange-500 hover:bg-orange-600' };
+            }
+            if (type === 'take_away') {
+                return { next: 'ready', label: 'Siap Diambil 🛍️', color: 'bg-indigo-600 hover:bg-indigo-700' };
+            }
+            return { next: 'completed', label: 'Selesaikan Pesanan ✅', color: 'bg-emerald-600 hover:bg-emerald-700' };
+        }
+        if (status === 'on_delivery' || status === 'ready') {
+            return { next: 'completed', label: 'Selesai & Diterima ✅', color: 'bg-emerald-600 hover:bg-emerald-700' };
+        }
+        return null;
+    };
 
     const handleUpdateStatus = async (order) => {
-        const currentStatus = order.status;
-        const newStatus = nextStatus[currentStatus];
-        if (!newStatus) return;
+        const action = getNextStatusAction(order);
+        if (!action) return;
 
         // If completing a cash order that hasn't been paid, show payment modal
-        if (newStatus === 'completed' && order.paymentMethod === 'cash' && !order.amountPaid) {
+        if (action.next === 'completed' && order.paymentMethod === 'cash' && !order.amountPaid) {
             setCashModal(order);
             setAmountPaid('');
             return;
         }
 
         try {
-            await updateOrderStatus(order.id, newStatus);
-            toast.success(`Status diubah ke ${nextLabel[currentStatus]}`);
+            await updateOrderStatus(order.id, action.next);
+            toast.success(`Status berhasil diubah`);
         } catch {
             toast.error('Gagal mengubah status');
         }
@@ -180,88 +228,120 @@ export default function OrderPage() {
                 <EmptyState icon={ClipboardList} title="Tidak ada pesanan" description={`Belum ada pesanan ${activeTab !== 'all' ? `dengan status ${activeTab}` : ''}`} />
             ) : (
                 <div className="space-y-3">
-                    {filteredOrders.map((order) => (
-                        <div key={order.id} onClick={() => setDetailOrder(order)} className="bg-white rounded-2xl border border-border p-4 shadow-sm hover:shadow-md transition-shadow animate-fade-in cursor-pointer">
-                            <div className="flex items-start justify-between mb-3">
-                                <div className="flex items-center gap-3">
-                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center
-                    ${order.status === 'pending' ? 'bg-amber-100' : order.status === 'processing' ? 'bg-blue-100' : 'bg-emerald-100'}`}
-                                    >
-                                        {order.status === 'pending' ? <Clock className="w-5 h-5 text-amber-600" /> :
-                                            order.status === 'processing' ? <ChefHat className="w-5 h-5 text-blue-600" /> :
-                                                <CheckCircle2 className="w-5 h-5 text-emerald-600" />}
-                                    </div>
-                                    <div>
-                                        <div className="flex items-center gap-2">
-                                            <h3 className="font-bold text-secondary">
-                                                {order.tableNumber ? `Meja #${order.tableNumber}` : (order.customerName || 'Online')}
-                                            </h3>
-                                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                                                order.orderType === 'delivery'
-                                                    ? 'bg-purple-100 text-purple-700 border border-purple-200'
-                                                    : order.orderType === 'take_away' && !order.tableNumber
-                                                        ? 'bg-blue-100 text-blue-700 border border-blue-200'
-                                                        : 'bg-slate-100 text-slate-600'
-                                            }`}>
-                                                {order.orderType === 'delivery' ? '🛵 Delivery' : order.orderType === 'take_away' ? '🛍️ Take Away' : '🍽️ Dine In'}
-                                            </span>
+                    {filteredOrders.map((order) => {
+                        const delivery = parseOrderDelivery(order);
+                        const action = getNextStatusAction(order);
+
+                        return (
+                            <div key={order.id} onClick={() => setDetailOrder(order)} className="bg-white rounded-2xl border border-border p-4 shadow-sm hover:shadow-md transition-shadow animate-fade-in cursor-pointer">
+                                <div className="flex items-start justify-between mb-3">
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center
+                                            ${order.status === 'pending' ? 'bg-amber-100' : order.status === 'processing' ? 'bg-blue-100' : order.status === 'on_delivery' ? 'bg-orange-100' : 'bg-emerald-100'}`}
+                                        >
+                                            {order.status === 'pending' ? <Clock className="w-5 h-5 text-amber-600" /> :
+                                                order.status === 'processing' ? <ChefHat className="w-5 h-5 text-blue-600" /> :
+                                                    order.status === 'on_delivery' ? <Bike className="w-5 h-5 text-orange-600" /> :
+                                                        <CheckCircle2 className="w-5 h-5 text-emerald-600" />}
                                         </div>
-                                        <p className="text-xs text-slate-400">{formatTime(order.createdAt)}</p>
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <h3 className="font-bold text-secondary">
+                                                    {order.tableNumber ? `Meja #${order.tableNumber}` : (order.customerName || 'Online')}
+                                                </h3>
+                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                                    order.orderType === 'delivery'
+                                                        ? 'bg-purple-100 text-purple-700 border border-purple-200'
+                                                        : order.orderType === 'take_away' && !order.tableNumber
+                                                            ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                                                            : 'bg-slate-100 text-slate-600'
+                                                }`}>
+                                                    {order.orderType === 'delivery' ? '🛵 Delivery' : order.orderType === 'take_away' ? '🛍️ Take Away' : '🍽️ Dine In'}
+                                                </span>
+                                            </div>
+                                            <p className="text-xs text-slate-400">{formatTime(order.createdAt)}</p>
+                                        </div>
                                     </div>
+                                    <Badge status={order.status} />
                                 </div>
-                                <Badge status={order.status} />
-                            </div>
 
-                            {/* Items */}
-                            <div className="space-y-1.5 mb-3 bg-slate-50 rounded-xl p-3">
-                                {order.items?.map((item, idx) => (
-                                    <div key={idx} className="flex justify-between text-sm">
-                                        <span className="text-slate-600">
-                                            {item.name} × {item.quantity}
-                                            {item.notes && <span className="text-amber-600 ml-1 text-xs">({item.notes})</span>}
-                                        </span>
-                                        <span className="font-medium text-slate-700">{formatPrice(item.price * item.quantity)}</span>
+                                {/* Delivery Address & Maps Quick Link */}
+                                {order.orderType === 'delivery' && (delivery.address || order.deliveryAddress) && (
+                                    <div className="mb-3 bg-purple-50/60 border border-purple-100 rounded-xl p-2.5 text-xs text-purple-900 flex items-start justify-between gap-2">
+                                        <div className="flex-1">
+                                            <p className="font-semibold flex items-center gap-1">
+                                                <MapPin className="w-3.5 h-3.5 text-purple-600 flex-shrink-0" />
+                                                <span className="truncate">{delivery.address || order.deliveryAddress}</span>
+                                            </p>
+                                            {delivery.distanceKm > 0 && (
+                                                <p className="text-[10px] text-purple-700 pl-4.5 mt-0.5">
+                                                    Jarak: {delivery.distanceKm} km · Ongkir: {delivery.shippingFee > 0 ? formatPrice(delivery.shippingFee) : 'Gratis'}
+                                                    {delivery.courierTip > 0 && ` · Tip: ${formatPrice(delivery.courierTip)}`}
+                                                </p>
+                                            )}
+                                        </div>
+                                        {delivery.lat && delivery.lng && (
+                                            <a
+                                                href={buildGoogleMapsRouteUrl(delivery.lat, delivery.lng)}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                onClick={(e) => e.stopPropagation()}
+                                                className="px-2.5 py-1 bg-white hover:bg-purple-100 text-purple-700 font-bold text-[11px] rounded-lg border border-purple-200 shadow-xs flex items-center gap-1 flex-shrink-0 transition-colors"
+                                            >
+                                                <Navigation className="w-3 h-3 text-purple-600" />
+                                                <span>Peta</span>
+                                            </a>
+                                        )}
                                     </div>
-                                ))}
-                                {order.notes && (
-                                    <p className="text-xs text-slate-500 pt-1 border-t border-border mt-1">💬 {order.notes}</p>
                                 )}
-                            </div>
 
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="font-bold text-primary text-lg">{formatPrice(order.totalPrice)}</span>
-                                    {order.paymentMethod && (
-                                        <span className={`px-2 py-0.5 rounded-md text-xs font-medium
-                                            ${order.paymentMethod === 'qris'
-                                                ? 'bg-purple-100 text-purple-700'
-                                                : 'bg-emerald-100 text-emerald-700'
-                                            }`}>
-                                            {order.paymentMethod === 'qris' ? '📱 QRIS' : '💵 Kasir'}
-                                        </span>
-                                    )}
-                                    {order.amountPaid && (
-                                        <span className="px-2 py-0.5 rounded-md text-xs font-medium bg-green-100 text-green-700">
-                                            ✅ Lunas
-                                        </span>
+                                {/* Items */}
+                                <div className="space-y-1.5 mb-3 bg-slate-50 rounded-xl p-3">
+                                    {order.items?.map((item, idx) => (
+                                        <div key={idx} className="flex justify-between text-sm">
+                                            <span className="text-slate-600">
+                                                {item.name} × {item.quantity}
+                                                {item.notes && <span className="text-amber-600 ml-1 text-xs">({item.notes})</span>}
+                                            </span>
+                                            <span className="font-medium text-slate-700">{formatPrice(item.price * item.quantity)}</span>
+                                        </div>
+                                    ))}
+                                    {delivery.userNotes && (
+                                        <p className="text-xs text-slate-500 pt-1 border-t border-border mt-1">📝 {delivery.userNotes}</p>
                                     )}
                                 </div>
-                                {order.status !== 'completed' && (
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); handleUpdateStatus(order); }}
-                                        className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer transition-all
-                      ${order.status === 'pending'
-                                                ? 'bg-blue-500 hover:bg-blue-600 text-white shadow-lg shadow-blue-500/20'
-                                                : 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-500/20'
-                                            }`}
-                                    >
-                                        {nextLabel[order.status]}
-                                        <ArrowRight className="w-4 h-4" />
-                                    </button>
-                                )}
+
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <span className="font-bold text-primary text-lg">{formatPrice(order.totalPrice)}</span>
+                                        {order.paymentMethod && (
+                                            <span className={`px-2 py-0.5 rounded-md text-xs font-medium
+                                                ${order.paymentMethod === 'qris'
+                                                    ? 'bg-purple-100 text-purple-700'
+                                                    : 'bg-emerald-100 text-emerald-700'
+                                                }`}>
+                                                {order.paymentMethod === 'qris' ? '📱 QRIS' : '💵 Kasir'}
+                                            </span>
+                                        )}
+                                        {order.amountPaid && (
+                                            <span className="px-2 py-0.5 rounded-md text-xs font-medium bg-green-100 text-green-700">
+                                                ✅ Lunas
+                                            </span>
+                                        )}
+                                    </div>
+                                    {action && (
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); handleUpdateStatus(order); }}
+                                            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white shadow-sm transition-all cursor-pointer ${action.color}`}
+                                        >
+                                            <span>{action.label}</span>
+                                            <ArrowRight className="w-3.5 h-3.5" />
+                                        </button>
+                                    )}
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             )}
 
@@ -300,154 +380,168 @@ export default function OrderPage() {
                             </div>
 
                             {/* Receipt-style Items */}
-                            <div className="bg-slate-50 rounded-xl p-4 space-y-2">
-                                <div className="flex justify-between text-xs font-semibold text-slate-400 pb-1 border-b border-border">
-                                    <span>Item</span>
-                                    <span>Harga</span>
-                                </div>
-                                {detailOrder.items?.map((item, idx) => (
-                                    <div key={idx}>
-                                        <div className="flex justify-between text-sm">
-                                            <span className="text-slate-700">{item.name} × {item.quantity}</span>
-                                            <span className="font-medium text-slate-700">{formatPrice(item.price * item.quantity)}</span>
-                                        </div>
-                                        {item.notes && (
-                                            <p className="text-[10px] text-amber-600 mt-0.5 ml-1">📝 {item.notes}</p>
-                                        )}
-                                    </div>
-                                ))}
-                                {detailOrder.notes && (
-                                    <p className="text-xs text-slate-500 pt-2 border-t border-border">💬 {detailOrder.notes}</p>
-                                )}
+                            {(() => {
+                                const delivery = parseOrderDelivery(detailOrder);
+                                const action = getNextStatusAction(detailOrder);
 
-                                <div className="border-t-2 border-border pt-2 mt-2">
-                                    <div className="flex justify-between font-bold text-lg">
-                                        <span className="text-secondary">Total</span>
-                                        <span className="text-primary">{formatPrice(detailOrder.totalPrice)}</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Payment Info */}
-                            <div className="bg-slate-50 rounded-xl p-4 space-y-2">
-                                {detailOrder.orderType && (
-                                    <div className="flex justify-between text-sm">
-                                        <span className="text-slate-500">Tipe Pesanan</span>
-                                        <span className="font-semibold text-secondary">
-                                            {detailOrder.orderType === 'dine_in'
-                                                ? '🍽️ Dine In (Makan di Meja)'
-                                                : detailOrder.orderType === 'delivery'
-                                                    ? '🛵 Delivery (Kirim ke Rumah)'
-                                                    : '🛍️ Take Away (Ambil Sendiri)'}
-                                        </span>
-                                    </div>
-                                )}
-                                {detailOrder.customerName && (
-                                    <div className="flex justify-between text-sm">
-                                        <span className="text-slate-500">Nama Pemesan</span>
-                                        <span className="font-semibold text-secondary">{detailOrder.customerName}</span>
-                                    </div>
-                                )}
-                                {detailOrder.customerPhone && (
-                                    <div className="flex justify-between items-center text-sm">
-                                        <span className="text-slate-500">Kontak WhatsApp</span>
-                                        <a
-                                            href={`https://wa.me/${detailOrder.customerPhone.replace(/\D/g, '')}?text=Halo%20${encodeURIComponent(detailOrder.customerName || '')},%20mengenai%20pesanan%20eMakan%20Anda...`}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            className="font-bold text-emerald-600 hover:underline flex items-center gap-1"
-                                        >
-                                            <span>💬 Hubungi WA</span>
-                                        </a>
-                                    </div>
-                                )}
-                                {detailOrder.deliveryAddress && (
-                                    <div className="text-xs pt-2 border-t border-border mt-1">
-                                        <span className="text-slate-500 font-semibold block mb-1">📍 Alamat Pengantaran:</span>
-                                        <p className="font-medium text-slate-700 bg-white p-2.5 rounded-xl border border-border leading-relaxed">
-                                            {detailOrder.deliveryAddress}
-                                        </p>
-                                    </div>
-                                )}
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-slate-500">Pembayaran</span>
-                                    <span className="font-semibold text-secondary">
-                                        {detailOrder.paymentMethod === 'qris' ? '📱 QRIS' : detailOrder.paymentMethod === 'cash' ? '💵 Tunai' : '-'}
-                                    </span>
-                                </div>
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-slate-500">Status</span>
-                                    <span className={`font-semibold ${detailOrder.amountPaid ? 'text-emerald-600' : 'text-amber-600'}`}>
-                                        {detailOrder.amountPaid ? '✅ Lunas' : '⏳ Belum bayar'}
-                                    </span>
-                                </div>
-                                {detailOrder.amountPaid && (
+                                return (
                                     <>
-                                        <div className="flex justify-between text-sm">
-                                            <span className="text-slate-500">Bayar</span>
-                                            <span className="font-medium text-secondary">{formatPrice(detailOrder.amountPaid)}</span>
+                                        <div className="bg-slate-50 rounded-xl p-4 space-y-2">
+                                            <div className="flex justify-between text-xs font-semibold text-slate-400 pb-1 border-b border-border">
+                                                <span>Item</span>
+                                                <span>Harga</span>
+                                            </div>
+                                            {detailOrder.items?.map((item, idx) => (
+                                                <div key={idx}>
+                                                    <div className="flex justify-between text-sm">
+                                                        <span className="text-slate-700">{item.name} × {item.quantity}</span>
+                                                        <span className="font-medium text-slate-700">{formatPrice(item.price * item.quantity)}</span>
+                                                    </div>
+                                                    {item.notes && (
+                                                        <p className="text-[10px] text-amber-600 mt-0.5 ml-1">📝 {item.notes}</p>
+                                                    )}
+                                                </div>
+                                            ))}
+
+                                            {detailOrder.orderType === 'delivery' && (
+                                                <div className="pt-2 border-t border-border space-y-1 text-xs text-slate-500">
+                                                    <div className="flex justify-between">
+                                                        <span>Ongkir ({delivery.distanceKm > 0 ? `${delivery.distanceKm} km` : 'Pengantaran'})</span>
+                                                        <span className={delivery.shippingFee > 0 ? 'font-medium text-slate-700' : 'font-bold text-emerald-600'}>
+                                                            {delivery.shippingFee > 0 ? formatPrice(delivery.shippingFee) : 'GRATIS'}
+                                                        </span>
+                                                    </div>
+                                                    {delivery.courierTip > 0 && (
+                                                        <div className="flex justify-between">
+                                                            <span>Tip untuk Kurir</span>
+                                                            <span className="font-medium text-primary">{formatPrice(delivery.courierTip)}</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {delivery.userNotes && (
+                                                <p className="text-xs text-slate-500 pt-2 border-t border-border">📝 Catatan: {delivery.userNotes}</p>
+                                            )}
+
+                                            <div className="border-t-2 border-border pt-2 mt-2">
+                                                <div className="flex justify-between font-bold text-lg">
+                                                    <span className="text-secondary">Total Tagihan</span>
+                                                    <span className="text-primary">{formatPrice(detailOrder.totalPrice)}</span>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div className="flex justify-between text-sm">
-                                            <span className="text-slate-500">Kembali</span>
-                                            <span className="font-bold text-emerald-600">
-                                                {formatPrice((detailOrder.amountPaid || 0) - (detailOrder.totalPrice || 0))}
-                                            </span>
+
+                                        {/* Payment & Delivery Info */}
+                                        <div className="bg-slate-50 rounded-xl p-4 space-y-2">
+                                            {detailOrder.orderType && (
+                                                <div className="flex justify-between text-sm">
+                                                    <span className="text-slate-500">Tipe Pesanan</span>
+                                                    <span className="font-semibold text-secondary">
+                                                        {detailOrder.orderType === 'dine_in'
+                                                            ? '🍽️ Dine In (Makan di Meja)'
+                                                            : detailOrder.orderType === 'delivery'
+                                                                ? '🛵 Delivery (Kirim ke Rumah)'
+                                                                : '🛍️ Take Away (Ambil Sendiri)'}
+                                                    </span>
+                                                </div>
+                                            )}
+                                            {detailOrder.customerName && (
+                                                <div className="flex justify-between text-sm">
+                                                    <span className="text-slate-500">Nama Pemesan</span>
+                                                    <span className="font-semibold text-secondary">{detailOrder.customerName}</span>
+                                                </div>
+                                            )}
+                                            {(delivery.phone || detailOrder.customerPhone) && (
+                                                <div className="flex justify-between items-center text-sm">
+                                                    <span className="text-slate-500">WhatsApp Pelanggan</span>
+                                                    <a
+                                                        href={buildWhatsAppChatUrl(delivery.phone || detailOrder.customerPhone, `Halo ${detailOrder.customerName || 'kak'}, mengenai pesanan Anda #${detailOrder.id.slice(0, 8)} di ${storeData?.name || 'eMakan'}...`)}
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                        className="font-bold text-emerald-600 hover:underline flex items-center gap-1"
+                                                    >
+                                                        <Phone className="w-3.5 h-3.5" />
+                                                        <span>{delivery.phone || detailOrder.customerPhone}</span>
+                                                    </a>
+                                                </div>
+                                            )}
+
+                                            {/* Delivery Address & Google Maps Navigation */}
+                                            {detailOrder.orderType === 'delivery' && (delivery.address || detailOrder.deliveryAddress) && (
+                                                <div className="text-xs pt-2 border-t border-border mt-1">
+                                                    <span className="text-slate-500 font-semibold block mb-1">📍 Alamat Pengantaran:</span>
+                                                    <p className="font-medium text-slate-700 bg-white p-2.5 rounded-xl border border-border leading-relaxed">
+                                                        {delivery.address || detailOrder.deliveryAddress}
+                                                    </p>
+
+                                                    {delivery.lat && delivery.lng && (
+                                                        <a
+                                                            href={buildGoogleMapsRouteUrl(delivery.lat, delivery.lng)}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md mt-2 transition-all cursor-pointer"
+                                                        >
+                                                            <Navigation className="w-4 h-4" />
+                                                            <span>Buka Navigasi Rute di Google Maps</span>
+                                                        </a>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            <div className="flex justify-between text-sm">
+                                                <span className="text-slate-500">Pembayaran</span>
+                                                <span className="font-semibold text-secondary">
+                                                    {detailOrder.paymentMethod === 'qris' ? '📱 QRIS' : detailOrder.paymentMethod === 'cash' ? '💵 Tunai' : '-'}
+                                                </span>
+                                            </div>
+                                            <div className="flex justify-between text-sm">
+                                                <span className="text-slate-500">Status Bayar</span>
+                                                <span className={`font-semibold ${detailOrder.amountPaid ? 'text-emerald-600' : 'text-amber-600'}`}>
+                                                    {detailOrder.amountPaid ? '✅ Lunas' : '⏳ Belum bayar'}
+                                                </span>
+                                            </div>
+                                            <div className="flex justify-between text-sm">
+                                                <span className="text-slate-500">Order ID</span>
+                                                <span className="font-mono text-xs text-slate-600">#{detailOrder.id?.slice(0, 8).toUpperCase()}</span>
+                                            </div>
+                                        </div>
+
+                                        {/* In-App Live Chat Drawer */}
+                                        <div className="pt-1">
+                                            <OrderChatBox
+                                                orderId={detailOrder.id}
+                                                currentNotes={detailOrder.notes}
+                                                role="resto"
+                                                senderName={storeData?.name || 'Pihak Resto'}
+                                                targetWhatsapp={delivery.phone || detailOrder.customerPhone}
+                                            />
+                                        </div>
+
+                                        {/* Action Buttons */}
+                                        <div className="flex gap-2 pt-2">
+                                            <button
+                                                onClick={() => {
+                                                    downloadReceiptPNG(detailOrder, storeData?.name || '', detailOrder.id, storeData?.address || '', storeData?.receiptFooter || '', storeData?.logoUrl || '');
+                                                }}
+                                                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-slate-100 text-slate-700 font-semibold text-sm hover:bg-slate-200 transition-all cursor-pointer"
+                                            >
+                                                <Download className="w-4 h-4" />
+                                                Download Struk
+                                            </button>
+                                            {action && (
+                                                <button
+                                                    onClick={() => { setDetailOrder(null); handleUpdateStatus(detailOrder); }}
+                                                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm text-white transition-all cursor-pointer shadow-md ${action.color}`}
+                                                >
+                                                    <span>{action.label}</span>
+                                                    <ArrowRight className="w-4 h-4" />
+                                                </button>
+                                            )}
                                         </div>
                                     </>
-                                )}
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-slate-500">Order ID</span>
-                                    <span className="font-mono text-xs text-slate-600">#{detailOrder.id?.slice(0, 8).toUpperCase()}</span>
-                                </div>
-                            </div>
-
-                            {/* QRIS Confirm Payment */}
-                            {detailOrder.paymentMethod === 'qris' && !detailOrder.amountPaid && (
-                                <button
-                                    onClick={async () => {
-                                        try {
-                                            await updateOrderPayment(detailOrder.id, {
-                                                amountPaid: detailOrder.totalPrice,
-                                                changeAmount: 0,
-                                            });
-                                            toast.success('QRIS dikonfirmasi lunas!');
-                                            setDetailOrder(null);
-                                        } catch {
-                                            toast.error('Gagal konfirmasi pembayaran');
-                                        }
-                                    }}
-                                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-500 text-white font-semibold text-sm hover:bg-emerald-600 transition-all cursor-pointer shadow-lg shadow-emerald-500/20"
-                                >
-                                    <CheckCircle2 className="w-4 h-4" />
-                                    Konfirmasi QRIS Lunas
-                                </button>
-                            )}
-
-                            {/* Action Buttons */}
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={() => {
-                                        downloadReceiptPNG(detailOrder, storeData?.name || '', detailOrder.id, storeData?.address || '', storeData?.receiptFooter || '', storeData?.logoUrl || '');
-                                    }}
-                                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-slate-100 text-slate-700 font-semibold text-sm hover:bg-slate-200 transition-all cursor-pointer"
-                                >
-                                    <Download className="w-4 h-4" />
-                                    Download Struk
-                                </button>
-                                {detailOrder.status !== 'completed' && (
-                                    <button
-                                        onClick={() => { setDetailOrder(null); handleUpdateStatus(detailOrder); }}
-                                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-semibold text-sm text-white transition-all cursor-pointer
-                                            ${detailOrder.status === 'pending'
-                                                ? 'bg-blue-500 hover:bg-blue-600'
-                                                : 'bg-emerald-500 hover:bg-emerald-600'
-                                            }`}
-                                    >
-                                        {nextLabel[detailOrder.status]}
-                                        <ArrowRight className="w-4 h-4" />
-                                    </button>
-                                )}
-                            </div>
+                                );
+                            })()}
                         </div>
                     </div>
                 </div>
