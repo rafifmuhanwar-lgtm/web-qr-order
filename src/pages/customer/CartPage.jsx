@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { createOrder } from '../../services/orderService';
 import { getStore } from '../../services/storeService';
@@ -108,6 +108,13 @@ export default function CartPage() {
             minimumFractionDigits: 0,
         }).format(price);
     };
+
+    const handleLocationSelect = useCallback(({ lat, lng, address }) => {
+        setCustomerCoords({ lat, lng });
+        if (!deliveryAddress || deliveryAddress.length < 5) {
+            setDeliveryAddress(address);
+        }
+    }, [deliveryAddress]);
 
     const updateQuantity = (id, delta) => {
         setCart((prev) => {
@@ -416,12 +423,7 @@ export default function CartPage() {
                                             <MapPicker
                                                 initialLat={storeConfig?.lat || -6.2088}
                                                 initialLng={storeConfig?.lng || 106.8456}
-                                                onLocationSelect={({ lat, lng, address }) => {
-                                                    setCustomerCoords({ lat, lng });
-                                                    if (!deliveryAddress || deliveryAddress.length < 5) {
-                                                        setDeliveryAddress(address);
-                                                    }
-                                                }}
+                                                onLocationSelect={handleLocationSelect}
                                                 height="200px"
                                             />
                                             <p className="text-[10px] text-slate-400 mt-1">

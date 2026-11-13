@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { MapPin, Navigation, Loader2 } from 'lucide-react';
@@ -29,13 +29,19 @@ export default function MapPicker({
     const mapContainerRef = useRef(null);
     const mapInstanceRef = useRef(null);
     const markerRef = useRef(null);
+    const onLocationSelectRef = useRef(onLocationSelect);
 
     const [loadingGps, setLoadingGps] = useState(false);
     const [fetchingAddress, setFetchingAddress] = useState(false);
     const [coords, setCoords] = useState({ lat: initialLat, lng: initialLng });
 
+    // Always keep callback ref fresh without triggering map re-mounts
+    useEffect(() => {
+        onLocationSelectRef.current = onLocationSelect;
+    }, [onLocationSelect]);
+
     // Reverse geocode via Nominatim
-    const reverseGeocode = useCallback(async (lat, lng) => {
+    const reverseGeocode = async (lat, lng) => {
         setFetchingAddress(true);
         try {
             const res = await fetch(
@@ -44,18 +50,19 @@ export default function MapPicker({
             );
             const data = await res.json();
             const address = data.display_name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-            if (onLocationSelect) {
-                onLocationSelect({ lat, lng, address });
+            if (onLocationSelectRef.current) {
+                onLocationSelectRef.current({ lat, lng, address });
             }
         } catch {
-            if (onLocationSelect) {
-                onLocationSelect({ lat, lng, address: `${lat.toFixed(5)}, ${lng.toFixed(5)}` });
+            if (onLocationSelectRef.current) {
+                onLocationSelectRef.current({ lat, lng, address: `${lat.toFixed(5)}, ${lng.toFixed(5)}` });
             }
         } finally {
             setFetchingAddress(false);
         }
-    }, [onLocationSelect]);
+    };
 
+    // Initialize Map ONCE on mount
     useEffect(() => {
         if (!mapContainerRef.current || mapInstanceRef.current) return;
 
@@ -75,7 +82,7 @@ export default function MapPicker({
             'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
             {
                 maxZoom: 19,
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                attribution: '&copy; OpenStreetMap contributors',
             }
         ).addTo(map);
 
@@ -105,7 +112,9 @@ export default function MapPicker({
             map.remove();
             mapInstanceRef.current = null;
         };
-    }, [initialLat, initialLng, readOnly, reverseGeocode]);
+        // Intentionally run once on mount only
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const handleCurrentLocation = () => {
         if (!navigator.geolocation) {
@@ -182,4 +191,3 @@ export default function MapPicker({
         </div>
     );
 }
-
