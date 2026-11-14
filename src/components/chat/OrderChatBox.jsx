@@ -4,7 +4,6 @@ import {
     MessageCircle,
     Store,
     User,
-    Phone,
     CheckCheck,
     X,
     ChevronDown,
@@ -12,7 +11,6 @@ import {
     MessageSquare,
 } from 'lucide-react';
 import { sendOrderChatMessage } from '../../services/orderService';
-import { buildWhatsAppChatUrl } from '../../utils/deliveryUtils';
 import toast from 'react-hot-toast';
 
 export default function OrderChatBox({
@@ -20,7 +18,6 @@ export default function OrderChatBox({
     currentNotes,
     role = 'customer', // 'customer' | 'resto'
     senderName = 'Pelanggan',
-    targetWhatsapp = '',
     variant = 'floating', // 'floating' | 'collapsible' | 'inline'
     onMessageSent,
 }) {
@@ -80,13 +77,6 @@ export default function OrderChatBox({
                   'Mohon ditunggu sebentar ya kak 🙏',
               ];
 
-    const waUrl = targetWhatsapp
-        ? buildWhatsAppChatUrl(
-              targetWhatsapp,
-              `Halo, saya ingin menanyakan pesanan #${orderId?.slice(0, 8)} di eMakan.`
-          )
-        : null;
-
     // The core chat window content
     const chatContent = (
         <div className="flex flex-col h-full bg-white">
@@ -108,18 +98,6 @@ export default function OrderChatBox({
                 </div>
 
                 <div className="flex items-center gap-1.5">
-                    {waUrl && (
-                        <a
-                            href={waUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-1 px-2.5 py-1 bg-emerald-600/90 hover:bg-emerald-600 text-white text-[11px] font-semibold rounded-lg transition-colors shadow-sm"
-                            title="Lanjutkan ke WhatsApp"
-                        >
-                            <Phone className="w-3 h-3" />
-                            <span className="hidden sm:inline">WhatsApp</span>
-                        </a>
-                    )}
                     {variant === 'floating' && (
                         <button
                             type="button"

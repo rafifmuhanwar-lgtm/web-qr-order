@@ -603,7 +603,6 @@ export default function OrderPage() {
                                                 role="resto"
                                                 variant="collapsible"
                                                 senderName={storeData?.name || 'Pihak Resto'}
-                                                targetWhatsapp={delivery.phone || detailOrder.customerPhone}
                                             />
                                         </div>
 

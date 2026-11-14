@@ -1,85 +1,93 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
 import {
     MessageCircle,
-    Phone,
     X,
     Send,
     Store,
     CheckCheck,
     MessageSquare,
-    ExternalLink,
+    Sparkles,
 } from 'lucide-react';
 import { getStore } from '../../services/storeService';
 import { supabase } from '../../config/supabase';
-import { buildWhatsAppChatUrl } from '../../utils/deliveryUtils';
-import { sendOrderChatMessage } from '../../services/orderService';
+import { sendOrderChatMessage, broadcastOrderChange } from '../../services/orderService';
 import toast from 'react-hot-toast';
 
 export default function CustomerFloatingChat() {
-    const { storeId: paramStoreId, orderId } = useParams();
+    const { storeId: paramStoreId, orderId: paramOrderId } = useParams();
     const location = useLocation();
 
     const [isOpen, setIsOpen] = useState(false);
     const [store, setStore] = useState(null);
+    const [activeOrderId, setActiveOrderId] = useState(null);
     const [order, setOrder] = useState(null);
     const [input, setInput] = useState('');
     const [sending, setSending] = useState(false);
     const [hasCartBar, setHasCartBar] = useState(false);
     const messagesEndRef = useRef(null);
 
-    // 1. Resolve Store and Order data based on route
+    // 1. Determine active order ID (from URL param or from current session)
+    useEffect(() => {
+        if (paramOrderId) {
+            setActiveOrderId(paramOrderId);
+        } else if (paramStoreId) {
+            const savedOrderId = sessionStorage.getItem(`emakan_active_order_${paramStoreId}`);
+            if (savedOrderId) {
+                setActiveOrderId(savedOrderId);
+            }
+        }
+    }, [paramOrderId, paramStoreId, location.pathname]);
+
+    // 2. Fetch Store Information
     useEffect(() => {
         let isMounted = true;
+        const currentStoreId = paramStoreId || order?.storeId;
 
-        const loadContextData = async () => {
-            try {
-                if (orderId) {
-                    const { data: orderData } = await supabase
-                        .from('orders')
-                        .select('*')
-                        .eq('id', orderId)
-                        .single();
-
-                    if (orderData && isMounted) {
-                        setOrder(orderData);
-                        if (orderData.storeId) {
-                            const storeData = await getStore(orderData.storeId);
-                            if (isMounted) setStore(storeData);
-                        }
-                    }
-                } else if (paramStoreId) {
-                    const storeData = await getStore(paramStoreId);
-                    if (isMounted) setStore(storeData);
+        if (currentStoreId) {
+            getStore(currentStoreId).then((storeData) => {
+                if (isMounted && storeData) {
+                    setStore(storeData);
                 }
-            } catch {
-                // non-blocking
-            }
-        };
-
-        loadContextData();
+            });
+        }
 
         return () => {
             isMounted = false;
         };
-    }, [paramStoreId, orderId, location.pathname]);
+    }, [paramStoreId, order?.storeId]);
 
-    // 2. Realtime listener for Order changes if orderId exists
+    // 3. Fetch Order data and listen via Realtime WebSocket
     useEffect(() => {
-        if (!orderId) return;
+        if (!activeOrderId) return;
 
+        let isMounted = true;
+
+        // Fetch initial order state
+        supabase
+            .from('orders')
+            .select('*')
+            .eq('id', activeOrderId)
+            .single()
+            .then(({ data }) => {
+                if (isMounted && data) {
+                    setOrder(data);
+                }
+            });
+
+        // Subscribe to WebSocket updates on this order
         const channel = supabase
-            .channel(`order-chat-${orderId}`)
+            .channel(`order-chat-live-${activeOrderId}`)
             .on(
                 'postgres_changes',
                 {
                     event: 'UPDATE',
                     schema: 'public',
                     table: 'orders',
-                    filter: `id=eq.${orderId}`,
+                    filter: `id=eq.${activeOrderId}`,
                 },
                 (payload) => {
-                    if (payload.new) {
+                    if (isMounted && payload.new) {
                         setOrder(payload.new);
                     }
                 }
@@ -87,11 +95,12 @@ export default function CustomerFloatingChat() {
             .subscribe();
 
         return () => {
+            isMounted = false;
             supabase.removeChannel(channel);
         };
-    }, [orderId]);
+    }, [activeOrderId]);
 
-    // 3. Detect if floating cart bar is currently present on screen
+    // 4. Detect if floating cart bar is on screen to prevent overlap
     useEffect(() => {
         const checkCartBar = () => {
             const bar = document.querySelector('[data-floating-cart="true"]');
@@ -103,79 +112,113 @@ export default function CustomerFloatingChat() {
         return () => clearInterval(interval);
     }, [location.pathname]);
 
-    // Parse chats from order.notes if exists, or local state for general inquiries
-    let parsedNotes = {};
-    if (order?.notes && typeof order.notes === 'string' && order.notes.startsWith('{')) {
-        try {
-            parsedNotes = JSON.parse(order.notes);
-        } catch {
-            parsedNotes = {};
+    // 5. Parse Chats from Order Notes JSON
+    const chats = useMemo(() => {
+        if (!order?.notes) return [];
+        if (typeof order.notes === 'string' && order.notes.startsWith('{')) {
+            try {
+                const parsed = JSON.parse(order.notes);
+                return Array.isArray(parsed.chats) ? parsed.chats : [];
+            } catch {
+                return [];
+            }
         }
-    }
-    const chats = Array.isArray(parsedNotes.chats) ? parsedNotes.chats : [];
+        return [];
+    }, [order?.notes]);
 
+    // Scroll to latest message
     useEffect(() => {
         if (isOpen) {
             messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
         }
     }, [chats.length, isOpen]);
 
-    const storeWhatsapp = store?.whatsapp || store?.whatsappNumber || '';
     const storeName = store?.name || 'Resto';
 
-    const defaultWaMessage = orderId
-        ? `Halo ${storeName}, saya ingin menanyakan pesanan #${orderId.slice(0, 8)} di eMakan.`
-        : `Halo ${storeName}, saya sedang melihat menu di eMakan dan ingin bertanya...`;
-
-    const waUrl = storeWhatsapp
-        ? buildWhatsAppChatUrl(storeWhatsapp, defaultWaMessage)
-        : null;
-
+    // 6. Send message: 100% In-App via Database & WebSocket
     const handleSend = async (textToSend) => {
         const text = (textToSend || input).trim();
         if (!text) return;
 
-        if (orderId && order) {
-            setSending(true);
-            try {
-                await sendOrderChatMessage(orderId, order.notes, {
-                    sender: 'customer',
-                    senderName: order.customerName || 'Pelanggan',
-                    text,
+        setSending(true);
+
+        try {
+            let targetId = activeOrderId;
+
+            // Jika belum ada order aktif (masih browsing menu), buat in-app chat thread di database
+            if (!targetId) {
+                const initialPayload = {
+                    storeId: paramStoreId,
+                    orderType: 'inquiry',
+                    status: 'inquiry',
+                    paymentStatus: 'unpaid',
+                    totalPrice: 0,
+                    customerName: 'Pelanggan',
+                    notes: JSON.stringify({
+                        chats: [
+                            {
+                                id: Date.now().toString(),
+                                sender: 'customer',
+                                senderName: 'Pelanggan',
+                                text,
+                                timestamp: new Date().toISOString(),
+                            },
+                        ],
+                    }),
+                };
+
+                const { data: newOrder, error: createErr } = await supabase
+                    .from('orders')
+                    .insert([initialPayload])
+                    .select()
+                    .single();
+
+                if (createErr) throw createErr;
+
+                targetId = newOrder.id;
+                setActiveOrderId(newOrder.id);
+                setOrder(newOrder);
+
+                if (paramStoreId) {
+                    sessionStorage.setItem(`emakan_active_order_${paramStoreId}`, newOrder.id);
+                }
+
+                broadcastOrderChange({
+                    orderId: newOrder.id,
+                    storeId: paramStoreId,
+                    chatUpdated: true,
                 });
+
                 setInput('');
-            } catch {
-                toast.error('Gagal mengirim pesan');
-            } finally {
-                setSending(false);
+                return;
             }
-        } else {
-            // Jika belum buat pesanan, arahkan langsung ke WhatsApp
-            if (waUrl) {
-                window.open(waUrl, '_blank', 'noopener,noreferrer');
-                setInput('');
-                setIsOpen(false);
-            } else {
-                toast('Nomor WhatsApp resto belum diatur oleh pemilik toko', { icon: 'ℹ️' });
-            }
+
+            // Jika order sudah ada, append message ke notes order tersebut
+            await sendOrderChatMessage(targetId, order?.notes, {
+                sender: 'customer',
+                senderName: order?.customerName || 'Pelanggan',
+                text,
+            });
+
+            setInput('');
+        } catch (err) {
+            console.error('Chat send error:', err);
+            toast.error('Gagal mengirim pesan');
+        } finally {
+            setSending(false);
         }
     };
 
-    const quickTemplates = orderId
-        ? [
-              'Pesanan sudah sampai mana kak? 🛵',
-              'Jangan lupa alat makan ya kak 🙏',
-              'Saya sudah di depan lokasi 👍',
-          ]
-        : [
-              'Halo kak, resto buka sampai jam berapa? ⏰',
-              'Menu ini bisa request pedas/tidak? 🌶️',
-              'Estimasi waktu penyiapan berapa lama? 👨‍🍳',
-          ];
+    const quickTemplates = [
+        'Pesanan sudah sampai mana kak? 🛵',
+        'Jangan lupa sendok garpu ya kak 🙏',
+        'Resto buka sampai jam berapa? ⏰',
+        'Bisa tolong cek pesanan saya? 👨‍🍳',
+    ];
 
     return (
         <>
-            {/* Pop-up Drawer Chat */}
+            {/* Pop-up Live Chat Drawer */}
             {isOpen && (
                 <div className="fixed bottom-20 right-4 sm:right-6 z-50 w-[350px] max-w-[calc(100vw-2rem)] h-[470px] max-h-[calc(100vh-6.5rem)] rounded-2xl shadow-2xl border border-slate-200 bg-white overflow-hidden flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-150">
                     {/* Header */}
@@ -188,7 +231,7 @@ export default function CustomerFloatingChat() {
                                 <h4 className="text-xs font-bold leading-tight">{storeName}</h4>
                                 <span className="text-[10px] text-emerald-400 font-medium flex items-center gap-1 mt-0.5">
                                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                                    {storeWhatsapp ? 'WhatsApp Aktif' : 'Obrolan Langsung'}
+                                    Live Chat • Terhubung Realtime
                                 </span>
                             </div>
                         </div>
@@ -203,102 +246,69 @@ export default function CustomerFloatingChat() {
                         </button>
                     </div>
 
-                    {/* WhatsApp Direct Banner if configured */}
-                    {waUrl && (
-                        <div className="p-2.5 bg-emerald-50 border-b border-emerald-100 flex items-center justify-between gap-2 shrink-0">
-                            <div className="flex items-center gap-2 text-emerald-800 text-xs">
-                                <Phone className="w-4 h-4 text-emerald-600 shrink-0" />
-                                <span className="font-medium text-[11px] leading-tight">
-                                    Terhubung ke WhatsApp resmi {storeName}
-                                </span>
-                            </div>
-                            <a
-                                href={waUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg transition-colors flex items-center gap-1 shrink-0 shadow-sm"
-                            >
-                                <span>Buka WA</span>
-                                <ExternalLink className="w-3 h-3" />
-                            </a>
-                        </div>
-                    )}
+                    {/* Sub-header status bar */}
+                    <div className="bg-slate-50 border-b border-slate-200/80 px-3.5 py-1.5 flex items-center justify-between text-[11px] text-slate-500">
+                        <span className="flex items-center gap-1">
+                            <Sparkles className="w-3 h-3 text-orange-500" />
+                            <span>Obrolan Langsung In-App</span>
+                        </span>
+                        {activeOrderId && (
+                            <span className="font-mono text-[10px] text-slate-400">
+                                #{activeOrderId.slice(0, 8)}
+                            </span>
+                        )}
+                    </div>
 
                     {/* Messages Body */}
                     <div className="flex-1 p-3.5 overflow-y-auto space-y-2.5 bg-slate-50">
-                        {orderId ? (
-                            chats.length === 0 ? (
-                                <div className="h-full flex flex-col items-center justify-center text-center p-4">
-                                    <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mb-2">
-                                        <MessageSquare className="w-5 h-5" />
-                                    </div>
-                                    <p className="text-xs font-semibold text-slate-700">Belum ada obrolan</p>
-                                    <p className="text-[11px] text-slate-400 mt-0.5 max-w-[200px]">
-                                        Kirim pesan langsung ke pihak resto mengenai pesanan Anda.
-                                    </p>
+                        {chats.length === 0 ? (
+                            <div className="h-full flex flex-col items-center justify-center text-center p-4">
+                                <div className="w-11 h-11 rounded-full bg-orange-50 text-orange-500 border border-orange-200 flex items-center justify-center mb-2">
+                                    <MessageSquare className="w-5 h-5" />
                                 </div>
-                            ) : (
-                                chats.map((chat) => {
-                                    const isMe = chat.sender === 'customer';
-                                    return (
+                                <p className="text-xs font-bold text-slate-700">Obrolan Langsung dengan Resto</p>
+                                <p className="text-[11px] text-slate-400 mt-1 max-w-[220px] leading-relaxed">
+                                    Ketik pertanyaan atau catatan khusus Anda di bawah. Pesan akan langsung diterima kasir/dapur secara real-time.
+                                </p>
+                            </div>
+                        ) : (
+                            chats.map((chat) => {
+                                const isMe = chat.sender === 'customer';
+                                return (
+                                    <div
+                                        key={chat.id}
+                                        className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}
+                                    >
+                                        <span className="text-[10px] text-slate-400 mb-0.5 px-1 font-medium">
+                                            {chat.sender === 'resto' ? storeName : 'Saya'}
+                                        </span>
                                         <div
-                                            key={chat.id}
-                                            className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}
+                                            className={`max-w-[82%] rounded-2xl px-3.5 py-2 text-xs shadow-xs ${
+                                                isMe
+                                                    ? 'bg-orange-500 text-white rounded-br-xs'
+                                                    : 'bg-white text-slate-800 border border-slate-200/80 rounded-bl-xs'
+                                            }`}
                                         >
-                                            <span className="text-[10px] text-slate-400 mb-0.5 px-1 font-medium">
-                                                {chat.sender === 'resto' ? storeName : 'Saya'}
-                                            </span>
+                                            <p className="leading-relaxed break-words">{chat.text}</p>
                                             <div
-                                                className={`max-w-[82%] rounded-2xl px-3.5 py-2 text-xs shadow-xs ${
-                                                    isMe
-                                                        ? 'bg-orange-500 text-white rounded-br-xs'
-                                                        : 'bg-white text-slate-800 border border-slate-200/80 rounded-bl-xs'
+                                                className={`flex items-center justify-end gap-1 mt-1 text-[9px] ${
+                                                    isMe ? 'text-white/80' : 'text-slate-400'
                                                 }`}
                                             >
-                                                <p className="leading-relaxed break-words">{chat.text}</p>
-                                                <div
-                                                    className={`flex items-center justify-end gap-1 mt-1 text-[9px] ${
-                                                        isMe ? 'text-white/80' : 'text-slate-400'
-                                                    }`}
-                                                >
-                                                    <span>
-                                                        {chat.timestamp
-                                                            ? new Date(chat.timestamp).toLocaleTimeString('id-ID', {
-                                                                  hour: '2-digit',
-                                                                  minute: '2-digit',
-                                                              })
-                                                            : ''}
-                                                    </span>
-                                                    {isMe && <CheckCheck className="w-2.5 h-2.5" />}
-                                                </div>
+                                                <span>
+                                                    {chat.timestamp
+                                                        ? new Date(chat.timestamp).toLocaleTimeString('id-ID', {
+                                                              hour: '2-digit',
+                                                              minute: '2-digit',
+                                                          })
+                                                        : ''}
+                                                </span>
+                                                {isMe && <CheckCheck className="w-2.5 h-2.5" />}
                                             </div>
                                         </div>
-                                    );
-                                })
-                            )
-                        ) : (
-                            <div className="h-full flex flex-col items-center justify-center text-center p-4 space-y-3">
-                                <div className="w-12 h-12 rounded-full bg-orange-50 text-orange-500 flex items-center justify-center border border-orange-200">
-                                    <MessageCircle className="w-6 h-6" />
-                                </div>
-                                <div>
-                                    <h4 className="text-sm font-bold text-slate-800">Ada yang bisa dibantu?</h4>
-                                    <p className="text-xs text-slate-500 mt-1 max-w-[240px] leading-relaxed">
-                                        Punya pertanyaan seputar menu, ketersediaan porsi, atau cara pemesanan?
-                                    </p>
-                                </div>
-                                {waUrl && (
-                                    <a
-                                        href={waUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/20 transition-all"
-                                    >
-                                        <Phone className="w-4 h-4" />
-                                        <span>Chat via WhatsApp Resto</span>
-                                    </a>
-                                )}
-                            </div>
+                                    </div>
+                                );
+                            })
                         )}
                         <div ref={messagesEndRef} />
                     </div>
@@ -330,7 +340,7 @@ export default function CustomerFloatingChat() {
                             type="text"
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
-                            placeholder={orderId ? 'Tulis pesan...' : 'Ketik pertanyaan...'}
+                            placeholder="Tulis pesan ke resto..."
                             disabled={sending}
                             className="flex-1 bg-slate-100/80 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 outline-none focus:border-orange-500 focus:bg-white transition-all placeholder:text-slate-400"
                         />
@@ -346,7 +356,7 @@ export default function CustomerFloatingChat() {
                 </div>
             )}
 
-            {/* Floating Persistent CTA "Pesan" Button in Bottom Right */}
+            {/* Persistent Floating CTA "Pesan" Button in Bottom Right */}
             <div
                 className={`fixed right-4 sm:right-6 z-40 transition-all duration-300 ${
                     hasCartBar ? 'bottom-22' : 'bottom-5'
@@ -360,7 +370,7 @@ export default function CustomerFloatingChat() {
                             ? 'bg-slate-800 hover:bg-slate-900 border border-slate-700'
                             : 'bg-orange-500 hover:bg-orange-600'
                     }`}
-                    title="Obrolan / Kirim Pesan"
+                    title="Obrolan Langsung dengan Resto"
                 >
                     <div className="relative">
                         {isOpen ? (
