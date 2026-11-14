@@ -7,6 +7,7 @@ import {
     purgeExpiredChats,
     CHAT_TTL_MS,
     isChatExpired,
+    chatSyncChannel,
 } from '../../services/chatService';
 import {
     MessageSquare,
@@ -59,25 +60,57 @@ export default function ChatManagePage() {
         }
     }, [storeId]);
 
+    // Fast smart-polling (every 2.5s) & auto-purge every 60s
     useEffect(() => {
         fetchChats();
 
-        // Interval untuk auto-purge database setiap 60 detik
+        // 1. Fast polling every 2.5s so messages pop up in real-time without user refreshing
+        const pollInterval = setInterval(() => {
+            if (storeId) {
+                fetchChats();
+            }
+        }, 2500);
+
+        // 2. Tab focus / visibility change trigger
+        const handleFocus = () => {
+            if (!document.hidden && storeId) fetchChats();
+        };
+        document.addEventListener('visibilitychange', handleFocus);
+        window.addEventListener('focus', handleFocus);
+
+        // 3. Database purge interval every 60 seconds
         const purgeInterval = setInterval(() => {
             if (storeId) {
                 purgeExpiredChats(storeId);
-                fetchChats();
             }
         }, 60000);
 
-        return () => clearInterval(purgeInterval);
+        return () => {
+            clearInterval(pollInterval);
+            clearInterval(purgeInterval);
+            document.removeEventListener('visibilitychange', handleFocus);
+            window.removeEventListener('focus', handleFocus);
+        };
     }, [storeId, fetchChats]);
 
-    // WebSocket Realtime Listener for instant messages
+    // WebSocket Realtime Listener for instant messages (Broadcast + Postgres CDC)
     useEffect(() => {
         if (!storeId) return;
 
-        const channel = supabase
+        // A. Listen to dedicated instant WebSocket Broadcast
+        chatSyncChannel.on('broadcast', { event: 'new_chat_message' }, () => {
+            fetchChats();
+        });
+
+        // B. Listen to global order sync
+        const syncChannel = supabase.channel('admin-chat-sync-global')
+            .on('broadcast', { event: 'order_change' }, () => {
+                fetchChats();
+            })
+            .subscribe();
+
+        // C. Postgres CDC Changes
+        const cdcChannel = supabase
             .channel('admin-chat-live-channel')
             .on(
                 'postgres_changes',
@@ -94,7 +127,8 @@ export default function ChatManagePage() {
             .subscribe();
 
         return () => {
-            supabase.removeChannel(channel);
+            supabase.removeChannel(syncChannel);
+            supabase.removeChannel(cdcChannel);
         };
     }, [storeId, fetchChats]);
 
@@ -113,10 +147,30 @@ export default function ChatManagePage() {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [activeChats.length, activeThreadId]);
 
-    // Send response
+    // Send response with Instant Optimistic UI Update
     const handleSend = async (textToSend) => {
         const text = (textToSend || inputText).trim();
         if (!text || !activeThread) return;
+
+        const optimisticChat = {
+            id: Date.now().toString(),
+            sender: 'resto',
+            senderName: storeData?.name || 'Pihak Resto',
+            text,
+            timestamp: new Date().toISOString(),
+        };
+
+        // 1. Instantly update active thread in local memory so message shows in 0ms!
+        setThreads((prev) =>
+            prev.map((t) => {
+                if (t.id === activeThread.id) {
+                    const newChats = [...(t.chats || []), optimisticChat];
+                    return { ...t, chats: newChats, latestChat: optimisticChat };
+                }
+                return t;
+            })
+        );
+        setInputText('');
 
         setSending(true);
         try {
@@ -125,7 +179,6 @@ export default function ChatManagePage() {
                 senderName: storeData?.name || 'Pihak Resto',
                 text,
             });
-            setInputText('');
             fetchChats();
         } catch (err) {
             console.error('Send message error:', err);

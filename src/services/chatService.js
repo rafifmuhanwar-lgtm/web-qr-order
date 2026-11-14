@@ -3,6 +3,22 @@ import { supabase } from '../config/supabase';
 // 6 Jam dalam Milidetik (6 * 60 * 60 * 1000)
 export const CHAT_TTL_MS = 6 * 60 * 60 * 1000;
 
+// Dedicated real-time broadcast channel for instant chat message sync
+export const chatSyncChannel = supabase.channel('chat-sync-global');
+chatSyncChannel.subscribe();
+
+export function broadcastChatMessage(payload) {
+    try {
+        chatSyncChannel.send({
+            type: 'broadcast',
+            event: 'new_chat_message',
+            payload: payload || {},
+        });
+    } catch {
+        // non-blocking
+    }
+}
+
 /**
  * Cek apakah sebuah pesan sudah melewati batas usia 6 jam
  */
@@ -161,7 +177,9 @@ export async function sendChatMessage(orderId, currentNotes, message) {
 
     if (error) throw error;
 
-    // Broadcast instant WebSocket update
+    // Broadcast instant WebSocket update across both global channels
+    broadcastChatMessage({ orderId, newChat, chats });
+
     try {
         const syncChannel = supabase.channel('order-sync-global');
         await syncChannel.send({

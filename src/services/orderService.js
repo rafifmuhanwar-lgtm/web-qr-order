@@ -1,4 +1,5 @@
 import { supabase } from '../config/supabase';
+import { broadcastChatMessage } from './chatService';
 
 const COLLECTION = 'orders';
 
@@ -242,6 +243,7 @@ export const sendOrderChatMessage = async (orderId, currentNotes, message) => {
 
     if (error) throw error;
 
+    broadcastChatMessage({ orderId, newChat: chats[chats.length - 1], chats });
     broadcastOrderChange({ orderId, chatUpdated: true });
 
     return chats;

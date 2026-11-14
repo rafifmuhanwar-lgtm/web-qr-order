@@ -12,7 +12,7 @@ import {
 import { getStore } from '../../services/storeService';
 import { supabase } from '../../config/supabase';
 import { sendOrderChatMessage, broadcastOrderChange } from '../../services/orderService';
-import { isChatExpired } from '../../services/chatService';
+import { isChatExpired, chatSyncChannel } from '../../services/chatService';
 import toast from 'react-hot-toast';
 
 export default function CustomerFloatingChat() {
@@ -58,31 +58,55 @@ export default function CustomerFloatingChat() {
         };
     }, [paramStoreId, order?.storeId]);
 
-    // 3. Fetch Order data and listen via Realtime WebSocket
+    // 3. Fetch Order data and listen via Realtime WebSocket & Smart Polling (Anti-Refresh)
     useEffect(() => {
         if (!activeOrderId) return;
 
         let isMounted = true;
 
-        // Fetch initial order state
-        supabase
-            .from('orders')
-            .select('*')
-            .eq('id', activeOrderId)
-            .single()
-            .then(({ data }) => {
+        const fetchOrderData = async () => {
+            if (!activeOrderId || !isMounted) return;
+            try {
+                const { data } = await supabase
+                    .from('orders')
+                    .select('*')
+                    .eq('id', activeOrderId)
+                    .single();
                 if (isMounted && data) {
                     setOrder(data);
                 }
-            });
+            } catch {
+                // non-blocking
+            }
+        };
 
-        // Subscribe to WebSocket updates on this order
+        // Initial fetch
+        fetchOrderData();
+
+        // A. Smart fast-polling every 2.5s so customer NEVER needs to refresh
+        const pollInterval = setInterval(fetchOrderData, 2500);
+
+        // B. Window focus / visibility change trigger
+        const handleFocus = () => {
+            if (!document.hidden) fetchOrderData();
+        };
+        document.addEventListener('visibilitychange', handleFocus);
+        window.addEventListener('focus', handleFocus);
+
+        // C. Dedicated instant WebSocket Broadcast
+        chatSyncChannel.on('broadcast', { event: 'new_chat_message' }, (e) => {
+            if (!e.payload?.orderId || e.payload.orderId === activeOrderId) {
+                fetchOrderData();
+            }
+        });
+
+        // D. Subscribe to CDC Postgres changes
         const channel = supabase
             .channel(`order-chat-live-${activeOrderId}`)
             .on(
                 'postgres_changes',
                 {
-                    event: 'UPDATE',
+                    event: '*',
                     schema: 'public',
                     table: 'orders',
                     filter: `id=eq.${activeOrderId}`,
@@ -90,6 +114,8 @@ export default function CustomerFloatingChat() {
                 (payload) => {
                     if (isMounted && payload.new) {
                         setOrder(payload.new);
+                    } else {
+                        fetchOrderData();
                     }
                 }
             )
@@ -97,6 +123,9 @@ export default function CustomerFloatingChat() {
 
         return () => {
             isMounted = false;
+            clearInterval(pollInterval);
+            document.removeEventListener('visibilitychange', handleFocus);
+            window.removeEventListener('focus', handleFocus);
             supabase.removeChannel(channel);
         };
     }, [activeOrderId]);
@@ -212,14 +241,35 @@ export default function CustomerFloatingChat() {
                 return;
             }
 
-            // Jika order sudah ada, append message ke notes order tersebut
+            // Optimistic instant UI update in 0ms so customer sees message immediately!
+            const optimisticChat = {
+                id: Date.now().toString(),
+                sender: 'customer',
+                senderName: order?.customerName || 'Pelanggan',
+                text,
+                timestamp: new Date().toISOString(),
+            };
+
+            setOrder((prev) => {
+                if (!prev) return prev;
+                let parsed = {};
+                try {
+                    parsed = prev.notes && prev.notes.startsWith('{') ? JSON.parse(prev.notes) : {};
+                } catch {
+                    parsed = {};
+                }
+                parsed.chats = [...(parsed.chats || []), optimisticChat];
+                return { ...prev, notes: JSON.stringify(parsed) };
+            });
+
+            setInput('');
+
+            // Send to database and broadcast
             await sendOrderChatMessage(targetId, order?.notes, {
                 sender: 'customer',
                 senderName: order?.customerName || 'Pelanggan',
                 text,
             });
-
-            setInput('');
         } catch (err) {
             console.error('Chat send error:', err);
             toast.error('Gagal mengirim pesan');
