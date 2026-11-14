@@ -19,7 +19,8 @@ import {
     Store,
     Smartphone,
     CheckCircle2,
-    ArrowRight
+    ArrowRight,
+    BarChart3
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -70,7 +71,7 @@ export default function LandingPage() {
         },
         {
             q: 'Metode pembayaran apa saja yang disediakan?',
-            a: 'Mendukung QRIS Payhook otomatis (dengan 2-digit kode nominal unik agar verifikasi instan) serta opsi pembayaran tunai langsung di kasir atau COD saat kurir tiba.'
+            a: 'Mendukung pembayaran langsung dengan scan QRIS serta bayar tunai di kasir atau sistem COD saat pesanan diantar.'
         },
         {
             q: 'Apakah struk belanja bisa dicetak ke printer kasir Bluetooth?',
@@ -206,7 +207,7 @@ export default function LandingPage() {
 
                 {/* Subtitle */}
                 <p className="text-neutral-600 text-sm sm:text-base max-w-2xl mx-auto mb-8 leading-relaxed">
-                    Solusi lengkap resto, kafe & warkop modern. Dukung pesanan makan di tempat via scan QR meja dan pesanan antar dari rumah dengan titik peta GPS, kalkulasi ongkir otomatis, chat kurir, hingga pembayaran QRIS Payhook.
+                    Solusi lengkap resto, kafe & warkop modern. Dukung pesanan makan di tempat via scan QR meja dan pesanan antar dari rumah dengan titik peta GPS, kalkulasi ongkir otomatis, chat kurir, hingga cetak struk kasir otomatis.
                 </p>
 
                 {/* Main Action Box */}
@@ -247,8 +248,8 @@ export default function LandingPage() {
                         <span className="text-xs font-semibold text-neutral-800">Chat Kurir & Resto</span>
                     </div>
                     <div className="p-3 bg-white rounded-xl border border-neutral-200/70 shadow-xs flex items-center gap-2.5">
-                        <ShieldCheck className="w-4 h-4 text-purple-500 shrink-0" />
-                        <span className="text-xs font-semibold text-neutral-800">Payhook QRIS Instan</span>
+                        <Receipt className="w-4 h-4 text-amber-500 shrink-0" />
+                        <span className="text-xs font-semibold text-neutral-800">Cetak Struk Kasir</span>
                     </div>
                 </div>
 
@@ -413,7 +414,7 @@ export default function LandingPage() {
                                         Layar Kasir & Dapur
                                     </span>
                                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                                        Lunas (QRIS Payhook)
+                                        Lunas (Pesanan Selesai)
                                     </span>
                                 </div>
                                 <div className="p-3 bg-white rounded-xl border border-orange-200/80 text-xs space-y-1.5">
@@ -521,30 +522,30 @@ export default function LandingPage() {
                     <div className="p-5 bg-white rounded-2xl border border-neutral-200/80 shadow-xs hover:border-orange-300 transition-colors flex flex-col justify-between">
                         <div>
                             <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center mb-4">
-                                <DollarSign className="w-5 h-5" />
+                                <Receipt className="w-5 h-5" />
                             </div>
-                            <h4 className="font-bold text-sm text-[#171717] mb-1.5">Payhook QRIS & Kasir</h4>
+                            <h4 className="font-bold text-sm text-[#171717] mb-1.5">Cetak Struk Kasir Bluetooth</h4>
                             <p className="text-xs text-neutral-500 leading-relaxed">
-                                Pembayaran QRIS mandiri dengan kode unik nominal 2-digit otomatis untuk kemudahan mutasi, atau bayar tunai di kasir.
+                                Cetak nota dan struk belanja rapi beresolusi tinggi langsung ke printer thermal Bluetooth atau unduh langsung oleh pelanggan.
                             </p>
                         </div>
                         <span className="mt-4 text-[11px] font-bold text-amber-700 flex items-center gap-1">
-                            Verifikasi Instan 1-Klik →
+                            Format Rapi Siap Cetak →
                         </span>
                     </div>
 
                     {/* Feature 6 */}
                     <div className="p-5 bg-white rounded-2xl border border-neutral-200/80 shadow-xs hover:border-orange-300 transition-colors flex flex-col justify-between">
                         <div>
-                            <div className="w-10 h-10 rounded-xl bg-neutral-100 text-neutral-800 flex items-center justify-center mb-4">
-                                <Receipt className="w-5 h-5" />
+                            <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center mb-4">
+                                <BarChart3 className="w-5 h-5" />
                             </div>
-                            <h4 className="font-bold text-sm text-[#171717] mb-1.5">Cetak Struk & Portal Master</h4>
+                            <h4 className="font-bold text-sm text-[#171717] mb-1.5">Laporan Omset & Menu</h4>
                             <p className="text-xs text-neutral-500 leading-relaxed">
-                                Generator struk siap cetak ke printer bluetooth thermal, laporan omset berkala, hingga dashboard Master Admin berkeamanan tinggi.
+                                Pantau grafik omset harian, jumlah transaksi sukses, dan kelola foto menu makanan/minuman serta kategori dalam satu dashboard.
                             </p>
                         </div>
-                        <span className="mt-4 text-[11px] font-bold text-neutral-800 flex items-center gap-1">
+                        <span className="mt-4 text-[11px] font-bold text-purple-700 flex items-center gap-1">
                             Laporan Keuangan Rapi →
                         </span>
                     </div>
@@ -579,7 +580,7 @@ export default function LandingPage() {
                         </div>
                         <h4 className="font-bold text-sm text-[#171717] mb-1.5">Pilih Menu & Titik Antar</h4>
                         <p className="text-xs text-neutral-500 leading-relaxed">
-                            Pilih makanan/minuman, tentukan titik lokasi peta untuk pesan antar (ongkir otomatis terhitung), lalu bayar lewat QRIS atau kasir.
+                            Pilih makanan/minuman, tentukan titik lokasi peta untuk pesan antar (ongkir otomatis terhitung), lalu selesaikan pesanan dengan mudah.
                         </p>
                     </div>
 
