@@ -12,7 +12,6 @@ import {
 import {
     generateDynamicQris,
     MASTER_QRIS_STATIC,
-    MASTER_MERCHANT_INFO,
 } from '../../utils/qrisUtils';
 import { QRCodeSVG } from 'qrcode.react';
 import {
@@ -20,7 +19,6 @@ import {
     DollarSign,
     Store,
     ShoppingBag,
-    QrCode,
     CheckCircle2,
     Clock,
     RefreshCw,
@@ -34,17 +32,22 @@ import {
     Utensils,
     Copy,
     Check,
-    Play,
     Activity,
     Smartphone,
-    Zap,
-    Sparkles,
+    Send,
+    Key,
+    Server,
+    CreditCard,
+    Layers,
+    Users,
+    Info,
+    ChevronRight,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function MasterPortalPage() {
     const { user } = useAuth();
-    const [activeTab, setActiveTab] = useState('overview'); // overview, orders, stores, payhook, users
+    const [activeTab, setActiveTab] = useState('overview'); // overview, payhook, orders, stores, users
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
@@ -61,6 +64,13 @@ export default function MasterPortalPage() {
     // Search filters
     const [searchOrder, setSearchOrder] = useState('');
     const [searchStore, setSearchStore] = useState('');
+
+    // Webhook actions
+    const [isPinging, setIsPinging] = useState(false);
+    const [isSimulating, setIsSimulating] = useState(false);
+    const [liveAmount, setLiveAmount] = useState(50123);
+
+    const webhookFullUrl = `${window.location.origin}/api/payment/qris/webhook`;
 
     const fetchAllData = async () => {
         try {
@@ -101,7 +111,7 @@ export default function MasterPortalPage() {
         setIsSavingConfig(true);
         try {
             savePayhookConfig(payhookConfig);
-            toast.success('Konfigurasi Payhook QRIS berhasil disimpan! 💳');
+            toast.success('Konfigurasi Payhook QRIS berhasil disimpan');
         } catch {
             toast.error('Gagal menyimpan konfigurasi');
         } finally {
@@ -110,10 +120,10 @@ export default function MasterPortalPage() {
     };
 
     const handleVerifyPayment = async (orderId, amount) => {
-        const toastId = toast.loading('Memverifikasi pembayaran Payhook...');
+        const toastId = toast.loading('Memverifikasi status lunas...');
         try {
             await confirmPayhookPayment(orderId, amount);
-            toast.success('Pembayaran QRIS Diverifikasi LUNAS! ✅', { id: toastId });
+            toast.success('Pembayaran QRIS Diverifikasi LUNAS', { id: toastId });
             fetchAllData();
         } catch (err) {
             toast.error('Gagal verifikasi: ' + err.message, { id: toastId });
@@ -127,18 +137,12 @@ export default function MasterPortalPage() {
         setTimeout(() => setCopiedField(''), 2000);
     };
 
-    const [isPinging, setIsPinging] = useState(false);
-    const [isSimulating, setIsSimulating] = useState(false);
-    const [liveAmount, setLiveAmount] = useState(50123);
-
-    const webhookFullUrl = `${window.location.origin}/api/payment/qris/webhook`;
-
     const handlePingConnection = async () => {
         setIsPinging(true);
-        const toastId = toast.loading('Menguji ping ke serverless webhook...');
+        const toastId = toast.loading('Menguji respons serverless webhook...');
         try {
             const res = await pingPayhookWebhook(payhookConfig.secretKey);
-            toast.success(res.message || 'Koneksi Serverless Payhook AKTIF! 🚀', { id: toastId });
+            toast.success(res.message || 'Koneksi Serverless Payhook OK (200)', { id: toastId });
         } catch (err) {
             toast.error(err.message || 'Gagal ping webhook', { id: toastId });
         } finally {
@@ -189,49 +193,54 @@ export default function MasterPortalPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-                <Spinner text="Menghubungkan ke Platform Master..." />
+            <div className="min-h-screen bg-[#090d16] flex items-center justify-center">
+                <Spinner text="Menghubungkan ke Master Platform..." />
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-slate-950 text-slate-100 font-sans pb-16">
-            {/* Top Navigation Bar */}
-            <header className="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-xl border-b border-indigo-500/20 px-4 lg:px-8 py-3.5">
+        <div className="min-h-screen bg-[#090d16] text-slate-100 font-sans selection:bg-slate-700 selection:text-white pb-20">
+            {/* Top Navigation Bar - Clean, Technical & Professional */}
+            <header className="sticky top-0 z-40 bg-[#0e1422]/90 backdrop-blur-md border-b border-slate-800/80 px-4 sm:px-6 lg:px-8 py-3">
                 <div className="max-w-7xl mx-auto flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/30">
-                            <Shield className="w-5 h-5 text-white" />
+                        <div className="w-9 h-9 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-200">
+                            <Shield className="w-4 h-4 text-emerald-400" />
                         </div>
                         <div>
                             <div className="flex items-center gap-2">
-                                <h1 className="text-lg font-black text-white tracking-wide">
-                                    MASTER CONTROL PORTAL
-                                </h1>
-                                <span className="px-2 py-0.5 rounded text-[10px] font-bold font-mono bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                                <span className="text-sm font-semibold text-white tracking-tight">
+                                    Platform Master Console
+                                </span>
+                                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                                     SUPERADMIN
                                 </span>
                             </div>
-                            <p className="text-xs text-slate-400">
-                                Multi-Store Platform Console • Logged in as <span className="text-indigo-400 font-mono font-medium">{user?.email}</span>
+                            <p className="text-[11px] text-slate-400">
+                                Multi-Tenant POS • Logged in as <span className="text-slate-300 font-mono">{user?.email}</span>
                             </p>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2 sm:gap-4">
+                    <div className="flex items-center gap-2 sm:gap-3">
+                        <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-900 border border-slate-800 text-[11px] text-slate-400">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                            <span>Sistem Normal</span>
+                        </div>
+
                         <button
                             onClick={fetchAllData}
                             disabled={refreshing}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200 border border-slate-700 transition-colors"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700/80 text-xs font-medium text-slate-300 border border-slate-700 transition-colors cursor-pointer"
                         >
-                            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+                            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin text-emerald-400' : ''}`} />
                             <span className="hidden sm:inline">Refresh Data</span>
                         </button>
 
                         <button
                             onClick={handleMasterLogout}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-xs font-semibold text-red-400 border border-red-500/20 transition-colors cursor-pointer"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-red-950/40 text-xs font-medium text-slate-400 hover:text-red-400 border border-slate-800 hover:border-red-900/50 transition-colors cursor-pointer"
                         >
                             <LogOut className="w-3.5 h-3.5" />
                             <span className="hidden sm:inline">Kunci Portal</span>
@@ -240,128 +249,134 @@ export default function MasterPortalPage() {
                 </div>
             </header>
 
-            {/* Navigation Tabs */}
-            <div className="max-w-7xl mx-auto px-4 lg:px-8 pt-6">
-                <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-slate-800">
+            {/* Navigation Tabs - Modern Segmented Control */}
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+                <div className="flex items-center gap-1.5 p-1 bg-[#0e1422] rounded-xl border border-slate-800/80 overflow-x-auto">
                     {[
-                        { id: 'overview', label: '📊 Ringkasan & GMV' },
-                        { id: 'payhook', label: '⚡ Payhook QRIS Hub' },
-                        { id: 'orders', label: `📦 Transaksi Global (${orders.length})` },
-                        { id: 'stores', label: `🏪 Merchant & Toko (${stores.length})` },
-                        { id: 'users', label: `👥 User & RBAC (${usersList.length})` },
-                    ].map((tab) => (
-                        <button
-                            key={tab.id}
-                            onClick={() => setActiveTab(tab.id)}
-                            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                                activeTab === tab.id
-                                    ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-600/30'
-                                    : 'text-slate-400 hover:text-white hover:bg-slate-900'
-                            }`}
-                        >
-                            {tab.label}
-                        </button>
-                    ))}
+                        { id: 'overview', label: 'Ringkasan Platform', icon: Layers },
+                        { id: 'payhook', label: 'Payhook QRIS Hub', icon: CreditCard },
+                        { id: 'orders', label: `Transaksi Global (${orders.length})`, icon: ShoppingBag },
+                        { id: 'stores', label: `Merchant Toko (${stores.length})`, icon: Store },
+                        { id: 'users', label: `Pengguna & RBAC (${usersList.length})`, icon: Users },
+                    ].map((tab) => {
+                        const Icon = tab.icon;
+                        const isActive = activeTab === tab.id;
+                        return (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id)}
+                                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition-colors cursor-pointer ${
+                                    isActive
+                                        ? 'bg-slate-800 text-white shadow-sm border border-slate-700/60'
+                                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                                }`}
+                            >
+                                <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-emerald-400' : 'text-slate-500'}`} />
+                                <span>{tab.label}</span>
+                            </button>
+                        );
+                    })}
                 </div>
             </div>
 
             {/* Main Content Area */}
-            <main className="max-w-7xl mx-auto px-4 lg:px-8 pt-6">
+            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
                 {/* 1. TAB OVERVIEW */}
                 {activeTab === 'overview' && (
                     <div className="space-y-6">
                         {/* Metrics Cards */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                            <div className="bg-slate-900/80 border border-indigo-500/20 rounded-2xl p-5 shadow-xl">
-                                <div className="flex items-center justify-between mb-3">
-                                    <span className="text-xs text-slate-400 font-medium">Platform GMV (Lunas)</span>
-                                    <div className="p-2 rounded-lg bg-green-500/10 text-green-400">
-                                        <DollarSign className="w-5 h-5" />
-                                    </div>
+                            <div className="bg-[#0e1422] border border-slate-800 rounded-xl p-5">
+                                <div className="flex items-center justify-between text-slate-400 mb-2">
+                                    <span className="text-xs font-medium">Platform GMV (Lunas)</span>
+                                    <DollarSign className="w-4 h-4 text-emerald-400" />
                                 </div>
-                                <h3 className="text-2xl font-black text-white">
+                                <h3 className="text-2xl font-bold text-white tracking-tight">
                                     Rp {totalRevenue.toLocaleString('id-ID')}
                                 </h3>
-                                <p className="text-[11px] text-green-400 mt-1 flex items-center gap-1">
-                                    <CheckCircle2 className="w-3 h-3" /> Akumulasi seluruh resto aktif
+                                <p className="text-[11px] text-slate-400 mt-2 flex items-center gap-1">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                    <span>Akumulasi omset dari seluruh cabang</span>
                                 </p>
                             </div>
 
-                            <div className="bg-slate-900/80 border border-indigo-500/20 rounded-2xl p-5 shadow-xl">
-                                <div className="flex items-center justify-between mb-3">
-                                    <span className="text-xs text-slate-400 font-medium">Total Toko / Cabang</span>
-                                    <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400">
-                                        <Store className="w-5 h-5" />
-                                    </div>
+                            <div className="bg-[#0e1422] border border-slate-800 rounded-xl p-5">
+                                <div className="flex items-center justify-between text-slate-400 mb-2">
+                                    <span className="text-xs font-medium">Total Merchant Toko</span>
+                                    <Store className="w-4 h-4 text-slate-300" />
                                 </div>
-                                <h3 className="text-2xl font-black text-white">{stores.length}</h3>
-                                <p className="text-[11px] text-indigo-400 mt-1">Multi-tenant stores terdaftar</p>
+                                <h3 className="text-2xl font-bold text-white tracking-tight">{stores.length}</h3>
+                                <p className="text-[11px] text-slate-400 mt-2">
+                                    Tenant aktif terdaftar di database
+                                </p>
                             </div>
 
-                            <div className="bg-slate-900/80 border border-indigo-500/20 rounded-2xl p-5 shadow-xl">
-                                <div className="flex items-center justify-between mb-3">
-                                    <span className="text-xs text-slate-400 font-medium">Total Seluruh Pesanan</span>
-                                    <div className="p-2 rounded-lg bg-purple-500/10 text-purple-400">
-                                        <ShoppingBag className="w-5 h-5" />
-                                    </div>
+                            <div className="bg-[#0e1422] border border-slate-800 rounded-xl p-5">
+                                <div className="flex items-center justify-between text-slate-400 mb-2">
+                                    <span className="text-xs font-medium">Total Pesanan</span>
+                                    <ShoppingBag className="w-4 h-4 text-slate-300" />
                                 </div>
-                                <h3 className="text-2xl font-black text-white">{orders.length}</h3>
-                                <p className="text-[11px] text-slate-400 mt-1">Dine-in & Online Delivery</p>
+                                <h3 className="text-2xl font-bold text-white tracking-tight">{orders.length}</h3>
+                                <p className="text-[11px] text-slate-400 mt-2">
+                                    Dine-in dan online delivery
+                                </p>
                             </div>
 
-                            <div className="bg-slate-900/80 border border-amber-500/20 rounded-2xl p-5 shadow-xl">
-                                <div className="flex items-center justify-between mb-3">
-                                    <span className="text-xs text-slate-400 font-medium">Pending Payhook QRIS</span>
-                                    <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400">
-                                        <Clock className="w-5 h-5" />
-                                    </div>
+                            <div className="bg-[#0e1422] border border-slate-800 rounded-xl p-5">
+                                <div className="flex items-center justify-between text-slate-400 mb-2">
+                                    <span className="text-xs font-medium">Antrean QRIS Pending</span>
+                                    <Clock className="w-4 h-4 text-amber-400" />
                                 </div>
-                                <h3 className="text-2xl font-black text-amber-400">
+                                <h3 className="text-2xl font-bold text-amber-400 tracking-tight">
                                     {pendingPayhookOrders.length}
                                 </h3>
-                                <p className="text-[11px] text-amber-400/80 mt-1">Menunggu mutasi / konfirmasi</p>
+                                <p className="text-[11px] text-slate-400 mt-2">
+                                    Menunggu notifikasi mutasi / verifikasi
+                                </p>
                             </div>
                         </div>
 
                         {/* Recent Activity Quick View */}
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             {/* Live Pending QRIS Box */}
-                            <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5">
-                                <div className="flex items-center justify-between mb-4">
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping" />
-                                        <h2 className="font-bold text-white text-sm">Menunggu Konfirmasi Payhook</h2>
+                            <div className="bg-[#0e1422] border border-slate-800 rounded-xl p-5">
+                                <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-800">
+                                    <div>
+                                        <h2 className="font-semibold text-white text-sm">Menunggu Konfirmasi Payhook</h2>
+                                        <p className="text-[11px] text-slate-400">Pesanan belum lunas yang siap dicocokkan mutasi</p>
                                     </div>
-                                    <span className="text-xs text-slate-500 font-mono">Realtime feed</span>
+                                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                        {pendingPayhookOrders.length} Pending
+                                    </span>
                                 </div>
 
                                 {pendingPayhookOrders.length === 0 ? (
-                                    <div className="text-center py-10 text-slate-500 text-xs">
-                                        Tidak ada pesanan QRIS yang sedang pending. Semua sudah lunas! ✨
+                                    <div className="text-center py-12 text-slate-500 text-xs">
+                                        Tidak ada pesanan QRIS yang sedang pending. Semua sudah lunas.
                                     </div>
                                 ) : (
-                                    <div className="space-y-3">
+                                    <div className="space-y-2.5">
                                         {pendingPayhookOrders.slice(0, 5).map((order) => (
                                             <div
                                                 key={order.id}
-                                                className="bg-slate-950/60 border border-slate-800 p-3.5 rounded-xl flex items-center justify-between gap-3"
+                                                className="bg-[#090d16] border border-slate-800/80 p-3.5 rounded-lg flex items-center justify-between gap-3"
                                             >
                                                 <div>
                                                     <div className="flex items-center gap-2">
-                                                        <span className="font-mono text-xs text-indigo-400 font-bold">
+                                                        <span className="font-mono text-xs text-slate-300 font-semibold">
                                                             #{order.id.slice(0, 8)}
                                                         </span>
-                                                        <span className="text-xs text-white font-medium">
+                                                        <span className="text-xs text-white">
                                                             {order.customerName}
                                                         </span>
                                                     </div>
                                                     <p className="text-[11px] text-slate-400 mt-0.5">
-                                                        Nominal: <span className="font-bold text-emerald-400">Rp {Number(order.totalPrice).toLocaleString('id-ID')}</span> • {order.orderType === 'delivery' ? '🛵 Antar' : '🍽️ Dine-in'}
+                                                        Total: <span className="font-semibold text-emerald-400">Rp {Number(order.totalPrice).toLocaleString('id-ID')}</span> • {order.orderType === 'delivery' ? 'Antar' : 'Dine-in'}
                                                     </p>
                                                 </div>
                                                 <button
                                                     onClick={() => handleVerifyPayment(order.id, order.totalPrice)}
-                                                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold shadow-md shadow-emerald-600/20 transition-all flex items-center gap-1 cursor-pointer shrink-0"
+                                                    className="px-3 py-1.5 bg-emerald-600/90 hover:bg-emerald-600 text-white rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer shrink-0"
                                                 >
                                                     <CheckCircle2 className="w-3.5 h-3.5" />
                                                     Set Lunas
@@ -373,28 +388,31 @@ export default function MasterPortalPage() {
                             </div>
 
                             {/* Store Quick List */}
-                            <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5">
-                                <div className="flex items-center justify-between mb-4">
-                                    <h2 className="font-bold text-white text-sm">Toko Terdaftar Terkini</h2>
+                            <div className="bg-[#0e1422] border border-slate-800 rounded-xl p-5">
+                                <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-800">
+                                    <div>
+                                        <h2 className="font-semibold text-white text-sm">Daftar Merchant Terdaftar</h2>
+                                        <p className="text-[11px] text-slate-400">Cabang dan outlet yang aktif dalam sistem</p>
+                                    </div>
                                     <button
                                         onClick={() => setActiveTab('stores')}
-                                        className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1"
+                                        className="text-xs text-slate-400 hover:text-white flex items-center gap-1 transition-colors"
                                     >
-                                        Lihat Semua <ArrowUpRight className="w-3.5 h-3.5" />
+                                        Semua <ArrowUpRight className="w-3 h-3" />
                                     </button>
                                 </div>
-                                <div className="space-y-3">
+                                <div className="space-y-2.5">
                                     {stores.slice(0, 5).map((store) => (
                                         <div
                                             key={store.id}
-                                            className="bg-slate-950/60 border border-slate-800 p-3 rounded-xl flex items-center justify-between"
+                                            className="bg-[#090d16] border border-slate-800/80 p-3 rounded-lg flex items-center justify-between"
                                         >
                                             <div className="flex items-center gap-3">
-                                                <div className="w-9 h-9 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center font-black text-sm">
+                                                <div className="w-8 h-8 rounded-md bg-slate-800 text-slate-300 flex items-center justify-center font-bold text-xs border border-slate-700">
                                                     {store.name?.slice(0, 2).toUpperCase()}
                                                 </div>
                                                 <div>
-                                                    <p className="text-xs font-bold text-white">{store.name}</p>
+                                                    <p className="text-xs font-semibold text-white">{store.name}</p>
                                                     <p className="text-[11px] text-slate-400 truncate max-w-[200px]">
                                                         {store.address || 'Alamat belum diisi'}
                                                     </p>
@@ -404,10 +422,10 @@ export default function MasterPortalPage() {
                                                 href={`/order/${store.id}`}
                                                 target="_blank"
                                                 rel="noreferrer"
-                                                className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors"
+                                                className="p-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
                                                 title="Buka Menu Pelanggan"
                                             >
-                                                <ExternalLink className="w-4 h-4" />
+                                                <ExternalLink className="w-3.5 h-3.5" />
                                             </a>
                                         </div>
                                     ))}
@@ -417,232 +435,235 @@ export default function MasterPortalPage() {
                     </div>
                 )}
 
-                {/* 2. TAB PAYHOOK QRIS HUB */}
+                {/* 2. TAB PAYHOOK QRIS HUB - Clean Developer Console */}
                 {activeTab === 'payhook' && (
                     <div className="space-y-6">
-                        {/* Top Hero Banner */}
-                        <div className="bg-gradient-to-r from-slate-900 via-indigo-950/60 to-slate-900 border border-indigo-500/30 rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
-                            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
+                        {/* Header Banner - Clean Developer Console Style */}
+                        <div className="bg-[#0e1422] border border-slate-800 rounded-xl p-5 sm:p-6">
+                            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
                                 <div>
-                                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 mb-3">
-                                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                                        <span>Serverless Webhook Aktif & Terhubung</span>
+                                    <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 mb-2.5">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                                        <span>Serverless Webhook Endpoint Aktif</span>
                                     </div>
-                                    <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                                    <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight">
                                         Pusat Webhook Payhook & QRIS Dinamis Serverless
                                     </h2>
-                                    <p className="text-xs sm:text-sm text-slate-300 mt-2 max-w-2xl leading-relaxed">
-                                        Setiap mutasi masuk dari aplikasi m-Banking / e-wallet (BCA, Mandiri, BRI, BNI, GoPay, DANA, OVO) yang ditangkap oleh aplikasi Payhook di Android akan otomatis diproses dan mencocokkan kode unik secara real-time.
+                                    <p className="text-xs text-slate-400 mt-1.5 max-w-2xl leading-relaxed">
+                                        Setiap mutasi masuk dari aplikasi m-Banking atau e-wallet (BCA, Mandiri, BRI, BNI, GoPay, DANA) yang ditangkap oleh forwarder Payhook di Android diproses otomatis untuk mencocokkan nominal transaksi.
                                     </p>
                                 </div>
 
-                                <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 shrink-0">
+                                <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 shrink-0">
                                     <button
                                         type="button"
                                         onClick={handlePingConnection}
                                         disabled={isPinging}
-                                        className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-white border border-slate-700 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md"
+                                        className="flex-1 sm:flex-none px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200 border border-slate-700 transition-colors flex items-center justify-center gap-2 cursor-pointer"
                                     >
-                                        <Activity className={`w-4 h-4 text-emerald-400 ${isPinging ? 'animate-spin' : ''}`} />
+                                        <Activity className={`w-3.5 h-3.5 text-emerald-400 ${isPinging ? 'animate-spin' : ''}`} />
                                         <span>{isPinging ? 'Menguji...' : 'Uji Ping Koneksi'}</span>
                                     </button>
                                     <button
                                         type="button"
                                         onClick={() => handleSimulatePayment(50123)}
                                         disabled={isSimulating}
-                                        className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-xs font-bold text-white shadow-lg shadow-indigo-600/30 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                                        className="flex-1 sm:flex-none px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-xs font-medium text-white transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-sm"
                                     >
-                                        <Zap className="w-4 h-4 text-amber-300" />
-                                        <span>{isSimulating ? 'Memproses...' : 'Simulasi Notifikasi (Rp 50.123)'}</span>
+                                        <Send className="w-3.5 h-3.5" />
+                                        <span>{isSimulating ? 'Memproses...' : 'Simulasi Masuk (Rp 50.123)'}</span>
                                     </button>
                                 </div>
                             </div>
                         </div>
 
                         {/* Webhook Configuration Cards */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                             {/* Card 1: Webhook URL */}
-                            <div className="bg-slate-900/90 border border-indigo-500/20 rounded-2xl p-6 shadow-xl space-y-3">
+                            <div className="bg-[#0e1422] border border-slate-800 rounded-xl p-5 space-y-3">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                                        1. URL Webhook (Kolom Webhook URL di Payhook)
-                                    </span>
-                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                                        Direkomendasikan
+                                    <div className="flex items-center gap-2">
+                                        <Server className="w-4 h-4 text-slate-400" />
+                                        <span className="text-xs font-semibold text-slate-300">
+                                            1. URL Webhook
+                                        </span>
+                                    </div>
+                                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">
+                                        METHOD: POST
                                     </span>
                                 </div>
 
-                                <div className="flex items-center gap-2 bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                                <div className="flex items-center gap-2 bg-[#090d16] p-2 rounded-lg border border-slate-800">
                                     <input
                                         type="text"
                                         readOnly
                                         value={webhookFullUrl}
-                                        className="flex-1 bg-transparent text-xs text-white font-mono outline-none"
+                                        className="flex-1 bg-transparent text-xs text-slate-200 font-mono outline-none px-1"
                                     />
                                     <button
                                         type="button"
                                         onClick={() => handleCopy(webhookFullUrl, 'webhook_url')}
-                                        className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer shrink-0"
+                                        className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs font-medium transition-colors flex items-center gap-1 cursor-pointer shrink-0 border border-slate-700"
                                     >
-                                        {copiedField === 'webhook_url' ? <Check className="w-3.5 h-3.5 text-green-300" /> : <Copy className="w-3.5 h-3.5" />}
+                                        {copiedField === 'webhook_url' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                                         <span>{copiedField === 'webhook_url' ? 'Tersalin' : 'Salin'}</span>
                                     </button>
                                 </div>
-                                <p className="text-[11px] text-slate-500">
-                                    Tempelkan URL ini di kolom Webhook URL pada aplikasi Payhook Android Anda.
+                                <p className="text-[11px] text-slate-400">
+                                    Masukkan URL ini pada kolom Webhook URL di aplikasi Payhook Android.
                                 </p>
                             </div>
 
                             {/* Card 2: Secret Key Header */}
-                            <div className="bg-slate-900/90 border border-indigo-500/20 rounded-2xl p-6 shadow-xl space-y-3">
+                            <div className="bg-[#0e1422] border border-slate-800 rounded-xl p-5 space-y-3">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                                        2. Secret Key Header (Kolom Header di Payhook)
-                                    </span>
-                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                                        Keamanan X-API-KEY
+                                    <div className="flex items-center gap-2">
+                                        <Key className="w-4 h-4 text-slate-400" />
+                                        <span className="text-xs font-semibold text-slate-300">
+                                            2. Header Secret Key
+                                        </span>
+                                    </div>
+                                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">
+                                        X-API-KEY
                                     </span>
                                 </div>
 
-                                <div className="flex items-center gap-2 bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                                <div className="flex items-center gap-2 bg-[#090d16] p-2 rounded-lg border border-slate-800">
                                     <input
                                         type="text"
                                         readOnly
                                         value={`x-api-key: ${payhookConfig.secretKey}`}
-                                        className="flex-1 bg-transparent text-xs text-white font-mono outline-none"
+                                        className="flex-1 bg-transparent text-xs text-slate-200 font-mono outline-none px-1"
                                     />
                                     <button
                                         type="button"
                                         onClick={() => handleCopy(payhookConfig.secretKey, 'secret_key')}
-                                        className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer shrink-0"
+                                        className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs font-medium transition-colors flex items-center gap-1 cursor-pointer shrink-0 border border-slate-700"
                                     >
-                                        {copiedField === 'secret_key' ? <Check className="w-3.5 h-3.5 text-green-300" /> : <Copy className="w-3.5 h-3.5" />}
+                                        {copiedField === 'secret_key' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                                         <span>{copiedField === 'secret_key' ? 'Tersalin' : 'Salin'}</span>
                                     </button>
                                 </div>
 
-                                <div className="text-[11px] text-slate-400 font-mono bg-slate-950/70 p-2 rounded-lg border border-slate-800/80">
-                                    <span className="text-slate-500">Format Header Autentikasi:</span>{' '}
-                                    <span className="text-indigo-400 font-bold">Header Name:</span> x-api-key |{' '}
-                                    <span className="text-purple-400 font-bold">Header Value:</span> {payhookConfig.secretKey}
+                                <div className="text-[11px] text-slate-400 font-mono bg-[#090d16] p-2 rounded-md border border-slate-800/80">
+                                    Header: <span className="text-slate-200">x-api-key</span> | Value: <span className="text-emerald-400">{payhookConfig.secretKey}</span>
                                 </div>
                             </div>
                         </div>
 
                         {/* 3 Langkah Praktis Setting Aplikasi Payhook di Android */}
-                        <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-7 shadow-xl space-y-5">
+                        <div className="bg-[#0e1422] border border-slate-800 rounded-xl p-5 sm:p-6 space-y-4">
                             <div>
-                                <span className="text-xs font-mono uppercase tracking-wider text-indigo-400 font-bold">
-                                    Panduan Praktis
-                                </span>
-                                <h3 className="text-base sm:text-lg font-bold text-white mt-1">
-                                    3 Langkah Praktis Setting Aplikasi Payhook di Android
+                                <h3 className="text-sm font-semibold text-white">
+                                    Panduan Konfigurasi Aplikasi Payhook Android
                                 </h3>
+                                <p className="text-xs text-slate-400">
+                                    Langkah cepat untuk mengaktifkan sinkronisasi otomatis mutasi bank
+                                </p>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div className="p-4 bg-slate-950 border border-slate-800 rounded-2xl relative">
-                                    <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white font-black text-sm flex items-center justify-center mb-3 shadow-md shadow-indigo-600/30">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+                                <div className="p-4 bg-[#090d16] border border-slate-800 rounded-lg">
+                                    <div className="w-6 h-6 rounded-md bg-slate-800 text-slate-300 font-mono font-semibold text-xs flex items-center justify-center mb-2.5 border border-slate-700">
                                         1
                                     </div>
-                                    <h4 className="font-bold text-white text-xs mb-1">Pilih Aplikasi Bank</h4>
+                                    <h4 className="font-semibold text-white text-xs mb-1">Pilih Aplikasi Bank</h4>
                                     <p className="text-[11px] text-slate-400 leading-relaxed">
-                                        Buka Payhook di HP Android, centang aplikasi yang menerima uang masuk: BCA mobile, Livin Mandiri, GoBiz / GoPay, atau DANA Bisnis.
+                                        Buka Payhook di Android, centang aplikasi yang aktif menerima transfer: BCA, Mandiri, GoBiz / GoPay, atau DANA Bisnis.
                                     </p>
                                 </div>
 
-                                <div className="p-4 bg-slate-950 border border-slate-800 rounded-2xl relative">
-                                    <div className="w-8 h-8 rounded-lg bg-purple-600 text-white font-black text-sm flex items-center justify-center mb-3 shadow-md shadow-purple-600/30">
+                                <div className="p-4 bg-[#090d16] border border-slate-800 rounded-lg">
+                                    <div className="w-6 h-6 rounded-md bg-slate-800 text-slate-300 font-mono font-semibold text-xs flex items-center justify-center mb-2.5 border border-slate-700">
                                         2
                                     </div>
-                                    <h4 className="font-bold text-white text-xs mb-1">Tempel Webhook URL</h4>
+                                    <h4 className="font-semibold text-white text-xs mb-1">Tempel Webhook URL</h4>
                                     <p className="text-[11px] text-slate-400 leading-relaxed">
-                                        Masukkan URL: <span className="text-indigo-300 font-mono break-all">{webhookFullUrl}</span> pada kolom Webhook URL di aplikasi Payhook.
+                                        Masukkan URL webhook sistem: <span className="text-slate-300 font-mono break-all">{webhookFullUrl}</span> pada kolom URL di aplikasi.
                                     </p>
                                 </div>
 
-                                <div className="p-4 bg-slate-950 border border-slate-800 rounded-2xl relative">
-                                    <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white font-black text-sm flex items-center justify-center mb-3 shadow-md shadow-emerald-600/30">
+                                <div className="p-4 bg-[#090d16] border border-slate-800 rounded-lg">
+                                    <div className="w-6 h-6 rounded-md bg-slate-800 text-slate-300 font-mono font-semibold text-xs flex items-center justify-center mb-2.5 border border-slate-700">
                                         3
                                     </div>
-                                    <h4 className="font-bold text-white text-xs mb-1">Isi Header Secret</h4>
+                                    <h4 className="font-semibold text-white text-xs mb-1">Isi Header Secret</h4>
                                     <p className="text-[11px] text-slate-400 leading-relaxed">
-                                        Di kolom Header tambahkan <span className="text-emerald-300 font-mono">Name: x-api-key</span> dan <span className="text-emerald-300 font-mono">Value: {payhookConfig.secretKey}</span>.
+                                        Di pengaturan Header tambahkan Name: <span className="text-slate-300 font-mono">x-api-key</span> dan Value: <span className="text-emerald-400 font-mono">{payhookConfig.secretKey}</span>.
                                     </p>
                                 </div>
                             </div>
                         </div>
 
                         {/* Barcode QRIS Master Platform (Dukungan QRIS Dinamis Otomatis) */}
-                        <div className="bg-slate-900/90 border border-indigo-500/20 rounded-3xl p-6 sm:p-7 shadow-xl">
-                            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between pb-6 border-b border-slate-800 gap-4">
+                        <div className="bg-[#0e1422] border border-slate-800 rounded-xl p-5 sm:p-6">
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-5 border-b border-slate-800 gap-3">
                                 <div>
                                     <div className="flex items-center gap-2">
-                                        <h3 className="text-base sm:text-lg font-bold text-white">
-                                            Barcode QRIS Master Platform (Dukungan QRIS Dinamis Otomatis)
+                                        <h3 className="text-sm font-semibold text-white">
+                                            Generator QRIS Dinamis (EMVCo Tag 54 + CRC16)
                                         </h3>
-                                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                                            Dinamis & Otomatis Terkunci
+                                        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                            Nominal Terkunci
                                         </span>
                                     </div>
-                                    <p className="text-xs text-slate-400 mt-1">
-                                        Barcode ini digunakan di seluruh transaksi customer. Sistem otomatis meng-inject Tag 54 + CRC16 sehingga nominal langsung terkunci di HP pembeli saat scan.
+                                    <p className="text-xs text-slate-400 mt-0.5">
+                                        Nominal tagihan di-inject otomatis ke format QRIS standar nasional sehingga pelanggan tidak perlu input nominal manual saat transfer.
                                     </p>
                                 </div>
 
-                                <div className="flex items-center gap-2 bg-slate-950 p-2 rounded-xl border border-slate-800">
-                                    <span className="text-xs text-slate-400 pl-2">Tes Nominal:</span>
-                                    <div className="flex items-center gap-1">
-                                        <span className="text-xs text-indigo-400 font-bold">Rp</span>
+                                <div className="flex items-center gap-2 bg-[#090d16] px-3 py-1.5 rounded-lg border border-slate-800">
+                                    <span className="text-xs text-slate-400">Tes Nominal:</span>
+                                    <div className="flex items-center gap-1 font-mono text-xs">
+                                        <span className="text-slate-400">Rp</span>
                                         <input
                                             type="number"
                                             value={liveAmount}
                                             onChange={(e) => setLiveAmount(Number(e.target.value) || 0)}
-                                            className="w-24 bg-transparent text-xs text-white font-bold font-mono outline-none"
+                                            className="w-24 bg-transparent text-white font-semibold outline-none"
                                         />
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-6">
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-5">
                                 {/* QR Code Display (1 Col) */}
-                                <div className="flex flex-col items-center justify-center p-6 bg-slate-950 rounded-2xl border border-slate-800">
-                                    <div className="p-4 bg-white rounded-2xl shadow-xl">
+                                <div className="flex flex-col items-center justify-center p-5 bg-[#090d16] rounded-lg border border-slate-800">
+                                    <div className="p-3.5 bg-white rounded-lg shadow-sm">
                                         <QRCodeSVG
                                             value={generateDynamicQris(payhookConfig.rawStaticQris || MASTER_QRIS_STATIC, liveAmount)}
-                                            size={200}
+                                            size={190}
                                             level="M"
                                             includeMargin={true}
-                                            className="mx-auto rounded-lg"
+                                            className="mx-auto"
                                         />
                                     </div>
-                                    <div className="mt-4 text-center">
-                                        <p className="text-xs font-bold text-emerald-400 flex items-center justify-center gap-1.5">
-                                            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                                            Nominal Terkunci: Rp {Number(liveAmount).toLocaleString('id-ID')}
+                                    <div className="mt-3.5 text-center">
+                                        <p className="text-xs font-semibold text-emerald-400 font-mono">
+                                            Rp {Number(liveAmount).toLocaleString('id-ID')}
                                         </p>
-                                        <p className="text-[10px] text-slate-500 mt-1">
-                                            Coba scan dengan BCA/GoPay/Dana, nominal langsung terkunci!
+                                        <p className="text-[11px] text-slate-400 mt-0.5">
+                                            Scan via BCA / GoPay / DANA untuk verifikasi nominal terkunci
                                         </p>
                                     </div>
                                 </div>
 
                                 {/* Metadata Breakdown (2 Cols) */}
-                                <div className="lg:col-span-2 space-y-4">
+                                <div className="lg:col-span-2 space-y-3.5">
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                                        <div className="p-3.5 bg-slate-950 rounded-xl border border-slate-800">
-                                            <span className="text-[10px] text-slate-500 uppercase font-semibold block">Merchant Terdaftar</span>
-                                            <span className="font-bold text-white text-xs mt-0.5 block">
+                                        <div className="p-3 bg-[#090d16] rounded-lg border border-slate-800">
+                                            <span className="text-[10px] text-slate-400 uppercase font-medium block">Merchant Terdaftar</span>
+                                            <span className="font-semibold text-white text-xs mt-0.5 block">
                                                 {payhookConfig.merchantName}
                                             </span>
-                                            <span className="text-[11px] text-slate-400 mt-0.5 block">
+                                            <span className="text-[11px] text-slate-400 mt-0.5 block truncate">
                                                 {payhookConfig.address}
                                             </span>
                                         </div>
 
-                                        <div className="p-3.5 bg-slate-950 rounded-xl border border-slate-800">
-                                            <span className="text-[10px] text-slate-500 uppercase font-semibold block">NMID Nasional (ASPI)</span>
-                                            <span className="font-bold text-indigo-400 font-mono text-sm mt-0.5 block">
+                                        <div className="p-3 bg-[#090d16] rounded-lg border border-slate-800">
+                                            <span className="text-[10px] text-slate-400 uppercase font-medium block">NMID Nasional (ASPI)</span>
+                                            <span className="font-mono text-xs font-semibold text-slate-200 mt-0.5 block">
                                                 {payhookConfig.nmid}
                                             </span>
                                             <span className="text-[11px] text-slate-400 mt-0.5 block">
@@ -651,20 +672,20 @@ export default function MasterPortalPage() {
                                         </div>
                                     </div>
 
-                                    <div className="p-4 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
-                                        <div className="flex items-center gap-2">
-                                            <Sparkles className="w-4 h-4 text-amber-400" />
-                                            <span className="text-xs font-bold text-white">Fitur Otomatis: Inject Tag 54 + CRC16 Checksum</span>
+                                    <div className="p-3.5 bg-[#090d16] rounded-lg border border-slate-800 space-y-1.5">
+                                        <div className="flex items-center gap-2 text-xs font-semibold text-slate-200">
+                                            <Info className="w-3.5 h-3.5 text-slate-400" />
+                                            <span>Mekanisme Tag 54 + Checksum CRC16</span>
                                         </div>
                                         <p className="text-xs text-slate-400 leading-relaxed">
-                                            💡 Setiap kali customer memilih bayar via QRIS, sistem otomatis mengubah QRIS ini menjadi <strong className="text-white">QRIS Dinamis</strong> dengan nominal yang terkunci persis sesuai total tagihan (+ 3 digit kode unik acak). Pelanggan tidak perlu mengetik nominal lagi di HP mereka, meminimalisir kesalahan transfer hingga 100%!
+                                            Saat pesanan dibuat, sistem mengambil master QRIS statis dan menyisipkan Tag 54 (Transaction Amount) beserta perhitungan ulang checksum CRC16-CCITT standar EMVCo. Aplikasi mobile banking membaca tag ini sebagai QR Dinamis dan langsung mengunci jumlah pembayaran.
                                         </p>
                                     </div>
 
                                     {/* Raw EMVCo Payload Preview */}
-                                    <div className="p-3 bg-slate-950 rounded-xl border border-slate-800/80 font-mono text-[10px] text-slate-400">
-                                        <span className="text-slate-500 block mb-1">Generated EMVCo Dynamic Payload:</span>
-                                        <p className="break-all text-indigo-300">
+                                    <div className="p-3 bg-[#090d16] rounded-lg border border-slate-800/80 font-mono text-[10px] text-slate-400">
+                                        <span className="text-slate-400 block mb-1">Payload EMVCo Terkini:</span>
+                                        <p className="break-all text-slate-300">
                                             {generateDynamicQris(payhookConfig.rawStaticQris || MASTER_QRIS_STATIC, liveAmount)}
                                         </p>
                                     </div>
@@ -672,44 +693,47 @@ export default function MasterPortalPage() {
                             </div>
                         </div>
 
-                        {/* Editor Config Credentials (Collapsible / Bottom) */}
-                        <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
-                            <h3 className="text-sm font-bold text-white">Kredensial & Pengaturan Tambahan</h3>
-                            <form onSubmit={handleSavePayhookConfig} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+                        {/* Editor Config Credentials */}
+                        <div className="bg-[#0e1422] border border-slate-800 rounded-xl p-5 sm:p-6 space-y-4">
+                            <div>
+                                <h3 className="text-sm font-semibold text-white">Kredensial & Konfigurasi Payhook</h3>
+                                <p className="text-xs text-slate-400">Parameter merchant master untuk platform eMakan</p>
+                            </div>
+                            <form onSubmit={handleSavePayhookConfig} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
                                 <div>
-                                    <label className="block text-slate-400 mb-1">Nama Merchant</label>
+                                    <label className="block text-slate-400 mb-1 font-medium">Nama Merchant</label>
                                     <input
                                         type="text"
                                         value={payhookConfig.merchantName}
                                         onChange={(e) => setPayhookConfig({ ...payhookConfig, merchantName: e.target.value })}
-                                        className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-indigo-500"
+                                        className="w-full px-3 py-2 bg-[#090d16] border border-slate-800 rounded-lg text-white outline-none focus:border-slate-600"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-slate-400 mb-1">NMID</label>
+                                    <label className="block text-slate-400 mb-1 font-medium">NMID</label>
                                     <input
                                         type="text"
                                         value={payhookConfig.nmid}
                                         onChange={(e) => setPayhookConfig({ ...payhookConfig, nmid: e.target.value })}
-                                        className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-mono outline-none focus:border-indigo-500"
+                                        className="w-full px-3 py-2 bg-[#090d16] border border-slate-800 rounded-lg text-white font-mono outline-none focus:border-slate-600"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-slate-400 mb-1">Secret Key (x-api-key)</label>
+                                    <label className="block text-slate-400 mb-1 font-medium">Secret Key (x-api-key)</label>
                                     <input
                                         type="text"
                                         value={payhookConfig.secretKey}
                                         onChange={(e) => setPayhookConfig({ ...payhookConfig, secretKey: e.target.value })}
-                                        className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-mono outline-none focus:border-indigo-500"
+                                        className="w-full px-3 py-2 bg-[#090d16] border border-slate-800 rounded-lg text-white font-mono outline-none focus:border-slate-600"
                                     />
                                 </div>
                                 <div className="flex items-end">
                                     <button
                                         type="submit"
                                         disabled={isSavingConfig}
-                                        className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                                        className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-white font-medium rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1.5 border border-slate-700"
                                     >
-                                        <Save className="w-3.5 h-3.5" />
+                                        <Save className="w-3.5 h-3.5 text-slate-300" />
                                         <span>{isSavingConfig ? 'Menyimpan...' : 'Simpan Kredensial'}</span>
                                     </button>
                                 </div>
@@ -720,22 +744,22 @@ export default function MasterPortalPage() {
 
                 {/* 3. TAB TRANSAKSI GLOBAL (ALL ORDERS) */}
                 {activeTab === 'orders' && (
-                    <div className="bg-slate-900/90 border border-indigo-500/20 rounded-2xl p-6 shadow-xl space-y-4">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+                    <div className="bg-[#0e1422] border border-slate-800 rounded-xl p-5 sm:p-6 space-y-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-800">
                             <div>
-                                <h2 className="text-base font-bold text-white">Stream Transaksi Global</h2>
+                                <h2 className="text-sm font-semibold text-white">Stream Transaksi Seluruh Merchant</h2>
                                 <p className="text-xs text-slate-400">
-                                    Seluruh pesanan dari semua cabang warkop/resto eMakan
+                                    Daftar pesanan realtime dari semua cabang resto
                                 </p>
                             </div>
                             <div className="relative w-full sm:w-64">
-                                <Search className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
+                                <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-2.5" />
                                 <input
                                     type="text"
                                     placeholder="Cari ID, Pelanggan, Meja..."
                                     value={searchOrder}
                                     onChange={(e) => setSearchOrder(e.target.value)}
-                                    className="w-full pl-9 pr-4 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
+                                    className="w-full pl-9 pr-3 py-1.5 bg-[#090d16] border border-slate-800 rounded-lg text-xs text-white focus:outline-none focus:border-slate-600"
                                 />
                             </div>
                         </div>
@@ -744,13 +768,13 @@ export default function MasterPortalPage() {
                             <table className="w-full text-left text-xs">
                                 <thead>
                                     <tr className="border-b border-slate-800 text-slate-400 uppercase text-[10px] tracking-wider">
-                                        <th className="py-3 px-3">Order ID</th>
-                                        <th className="py-3 px-3">Pelanggan</th>
-                                        <th className="py-3 px-3">Tipe</th>
-                                        <th className="py-3 px-3">Total Tagihan</th>
-                                        <th className="py-3 px-3">Status Bayar</th>
-                                        <th className="py-3 px-3">Waktu</th>
-                                        <th className="py-3 px-3 text-right">Aksi Superadmin</th>
+                                        <th className="py-2.5 px-3">Order ID</th>
+                                        <th className="py-2.5 px-3">Pelanggan</th>
+                                        <th className="py-2.5 px-3">Tipe</th>
+                                        <th className="py-2.5 px-3">Total Tagihan</th>
+                                        <th className="py-2.5 px-3">Status Bayar</th>
+                                        <th className="py-2.5 px-3">Waktu</th>
+                                        <th className="py-2.5 px-3 text-right">Aksi</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-800/60">
@@ -764,37 +788,37 @@ export default function MasterPortalPage() {
                                         filteredOrders.map((order) => {
                                             const isPaid = order.paymentStatus === 'paid';
                                             return (
-                                                <tr key={order.id} className="hover:bg-slate-800/40 transition-colors">
-                                                    <td className="py-3 px-3 font-mono font-bold text-indigo-400">
+                                                <tr key={order.id} className="hover:bg-slate-800/30 transition-colors">
+                                                    <td className="py-3 px-3 font-mono font-medium text-slate-300">
                                                         #{order.id.slice(0, 8)}
                                                     </td>
                                                     <td className="py-3 px-3 font-medium text-white">
                                                         {order.customerName}
                                                     </td>
                                                     <td className="py-3 px-3">
-                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-300">
+                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-slate-800 text-slate-300">
                                                             {order.orderType === 'delivery' ? (
                                                                 <>
-                                                                    <Motorbike className="w-3 h-3 text-orange-400" /> Antar
+                                                                    <Motorbike className="w-3 h-3 text-amber-400" /> Antar
                                                                 </>
                                                             ) : (
                                                                 <>
-                                                                    <Utensils className="w-3 h-3 text-blue-400" /> Meja {order.tableNumber || '-'}
+                                                                    <Utensils className="w-3 h-3 text-slate-400" /> Meja {order.tableNumber || '-'}
                                                                 </>
                                                             )}
                                                         </span>
                                                     </td>
-                                                    <td className="py-3 px-3 font-mono font-bold text-emerald-400">
+                                                    <td className="py-3 px-3 font-mono font-medium text-emerald-400">
                                                         Rp {Number(order.totalPrice).toLocaleString('id-ID')}
                                                     </td>
                                                     <td className="py-3 px-3">
                                                         {isPaid ? (
-                                                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-green-500/10 text-green-400 border border-green-500/20">
+                                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                                                                 <CheckCircle2 className="w-3 h-3" /> Lunas
                                                             </span>
                                                         ) : (
-                                                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                                                                <Clock className="w-3 h-3" /> Menunggu Bayar
+                                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                                                <Clock className="w-3 h-3" /> Menunggu
                                                             </span>
                                                         )}
                                                     </td>
@@ -810,14 +834,14 @@ export default function MasterPortalPage() {
                                                         {!isPaid ? (
                                                             <button
                                                                 onClick={() => handleVerifyPayment(order.id, order.totalPrice)}
-                                                                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-[11px] font-bold shadow-md shadow-emerald-600/20 transition-all inline-flex items-center gap-1 cursor-pointer"
+                                                                className="px-2.5 py-1 bg-emerald-600/90 hover:bg-emerald-600 text-white rounded text-[11px] font-medium transition-colors inline-flex items-center gap-1 cursor-pointer"
                                                             >
                                                                 <CheckCircle2 className="w-3 h-3" />
-                                                                Verifikasi Payhook
+                                                                Verifikasi Lunas
                                                             </button>
                                                         ) : (
                                                             <span className="text-[11px] text-slate-500">
-                                                                Terverifikasi ✓
+                                                                Lunas ✓
                                                             </span>
                                                         )}
                                                     </td>
@@ -833,22 +857,22 @@ export default function MasterPortalPage() {
 
                 {/* 4. TAB TOKO & MERCHANT (STORES) */}
                 {activeTab === 'stores' && (
-                    <div className="bg-slate-900/90 border border-indigo-500/20 rounded-2xl p-6 shadow-xl space-y-4">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+                    <div className="bg-[#0e1422] border border-slate-800 rounded-xl p-5 sm:p-6 space-y-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-800">
                             <div>
-                                <h2 className="text-base font-bold text-white">Direktori Toko & Merchant</h2>
+                                <h2 className="text-sm font-semibold text-white">Direktori Merchant Terdaftar</h2>
                                 <p className="text-xs text-slate-400">
-                                    Daftar toko/warkop yang terdaftar pada platform eMakan
+                                    Daftar toko dan cabang yang aktif pada sistem eMakan
                                 </p>
                             </div>
                             <div className="relative w-full sm:w-64">
-                                <Search className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
+                                <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-2.5" />
                                 <input
                                     type="text"
                                     placeholder="Cari Toko atau ID..."
                                     value={searchStore}
                                     onChange={(e) => setSearchStore(e.target.value)}
-                                    className="w-full pl-9 pr-4 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
+                                    className="w-full pl-9 pr-3 py-1.5 bg-[#090d16] border border-slate-800 rounded-lg text-xs text-white focus:outline-none focus:border-slate-600"
                                 />
                             </div>
                         </div>
@@ -857,38 +881,38 @@ export default function MasterPortalPage() {
                             {filteredStores.map((store) => (
                                 <div
                                     key={store.id}
-                                    className="bg-slate-950 border border-slate-800 rounded-2xl p-5 hover:border-indigo-500/40 transition-all shadow-lg flex flex-col justify-between"
+                                    className="bg-[#090d16] border border-slate-800 rounded-lg p-4 flex flex-col justify-between"
                                 >
                                     <div>
                                         <div className="flex items-center justify-between mb-3">
-                                            <span className="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-300 font-bold flex items-center justify-center text-xs">
+                                            <span className="w-7 h-7 rounded bg-slate-800 text-slate-300 font-semibold flex items-center justify-center text-xs border border-slate-700">
                                                 {store.name?.slice(0, 2).toUpperCase()}
                                             </span>
-                                            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-green-500/10 text-green-400 border border-green-500/20">
+                                            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                                                 Active
                                             </span>
                                         </div>
-                                        <h3 className="font-bold text-white text-sm mb-1">{store.name}</h3>
+                                        <h3 className="font-semibold text-white text-sm mb-1">{store.name}</h3>
                                         <p className="text-slate-400 text-xs mb-3 line-clamp-2">
                                             {store.address || 'Alamat toko belum diatur'}
                                         </p>
-                                        <div className="text-[11px] text-slate-500 space-y-1 font-mono">
+                                        <div className="text-[11px] text-slate-400 space-y-1 font-mono">
                                             <p className="truncate">Store ID: {store.id}</p>
                                             <p>WA: {store.whatsappNumber || '-'}</p>
                                             <p>
-                                                Ongkir Gratis: {store.freeDistanceKm ?? 5} km (Max {store.maxDeliveryKm ?? 20} km)
+                                                Gratis Ongkir: {store.freeDistanceKm ?? 5} km (Max {store.maxDeliveryKm ?? 20} km)
                                             </p>
                                         </div>
                                     </div>
 
-                                    <div className="pt-4 mt-4 border-t border-slate-800/80 flex items-center justify-between">
+                                    <div className="pt-3 mt-3 border-t border-slate-800/80 flex items-center justify-between">
                                         <a
                                             href={`/order/${store.id}`}
                                             target="_blank"
                                             rel="noreferrer"
-                                            className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition-colors"
+                                            className="inline-flex items-center gap-1 text-xs font-medium text-slate-300 hover:text-white transition-colors"
                                         >
-                                            Buka Menu Customer <ExternalLink className="w-3.5 h-3.5" />
+                                            Menu Pelanggan <ExternalLink className="w-3 h-3" />
                                         </a>
                                     </div>
                                 </div>
@@ -899,11 +923,11 @@ export default function MasterPortalPage() {
 
                 {/* 5. TAB USERS & RBAC */}
                 {activeTab === 'users' && (
-                    <div className="bg-slate-900/90 border border-indigo-500/20 rounded-2xl p-6 shadow-xl space-y-4">
+                    <div className="bg-[#0e1422] border border-slate-800 rounded-xl p-5 sm:p-6 space-y-4">
                         <div className="pb-4 border-b border-slate-800">
-                            <h2 className="text-base font-bold text-white">Manajemen Akun & Otoritas (RBAC)</h2>
+                            <h2 className="text-sm font-semibold text-white">Manajemen Akun & Otoritas (RBAC)</h2>
                             <p className="text-xs text-slate-400">
-                                Pengguna sistem, peran hak akses, dan keterkaitan toko
+                                Daftar pengguna terdaftar, otoritas peran sistem, dan keterkaitan toko
                             </p>
                         </div>
 
@@ -911,10 +935,10 @@ export default function MasterPortalPage() {
                             <table className="w-full text-left text-xs">
                                 <thead>
                                     <tr className="border-b border-slate-800 text-slate-400 uppercase text-[10px] tracking-wider">
-                                        <th className="py-3 px-3">Email Pengguna</th>
-                                        <th className="py-3 px-3">Role Otoritas</th>
-                                        <th className="py-3 px-3">Store ID Terkait</th>
-                                        <th className="py-3 px-3">Terdaftar Pada</th>
+                                        <th className="py-2.5 px-3">Email Pengguna</th>
+                                        <th className="py-2.5 px-3">Role Otoritas</th>
+                                        <th className="py-2.5 px-3">Store ID Terkait</th>
+                                        <th className="py-2.5 px-3">Terdaftar Pada</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-800/60">
@@ -923,22 +947,22 @@ export default function MasterPortalPage() {
                                             u.role === 'master_admin' ||
                                             u.email === 'rafif.muh.anwar@gmail.com';
                                         return (
-                                            <tr key={u.id} className="hover:bg-slate-800/40">
+                                            <tr key={u.id} className="hover:bg-slate-800/30">
                                                 <td className="py-3 px-3 font-medium text-white flex items-center gap-2">
                                                     {isMaster && (
-                                                        <Shield className="w-3.5 h-3.5 text-amber-400" />
+                                                        <Shield className="w-3.5 h-3.5 text-emerald-400" />
                                                     )}
                                                     {u.email}
                                                 </td>
                                                 <td className="py-3 px-3">
                                                     <span
-                                                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                                                        className={`px-2 py-0.5 rounded text-[10px] font-medium ${
                                                             isMaster
-                                                                ? 'bg-amber-500/10 text-amber-300 border border-amber-500/30'
-                                                                : 'bg-indigo-500/10 text-indigo-300 border border-indigo-500/20'
+                                                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                                                : 'bg-slate-800 text-slate-300 border border-slate-700'
                                                         }`}
                                                     >
-                                                        {isMaster ? '👑 MASTER ADMIN' : 'Store Admin'}
+                                                        {isMaster ? 'MASTER ADMIN' : 'Store Admin'}
                                                     </span>
                                                 </td>
                                                 <td className="py-3 px-3 font-mono text-slate-400 text-[11px]">
