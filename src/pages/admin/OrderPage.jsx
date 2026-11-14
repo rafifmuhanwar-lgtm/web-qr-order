@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { subscribeToOrders, updateOrderStatus, updateOrderPayment } from '../../services/orderService';
 import { downloadReceiptPNG } from '../../utils/receiptGenerator';
@@ -19,7 +19,8 @@ import {
     Navigation,
     Phone,
     MessageCircle,
-    HeartHandshake
+    HeartHandshake,
+    RefreshCw
 } from 'lucide-react';
 import Badge from '../../components/ui/Badge';
 import Spinner from '../../components/ui/Spinner';
@@ -109,10 +110,24 @@ export default function OrderPage() {
             return;
         }
 
+        // Optimistic UI update: Instantly reflect status change in memory
+        const prevOrders = [...orders];
+        setOrders((prev) =>
+            prev.map((o) => (o.id === order.id ? { ...o, status: action.next } : o))
+        );
+        if (detailOrder?.id === order.id) {
+            setDetailOrder((prev) => ({ ...prev, status: action.next }));
+        }
+
         try {
             await updateOrderStatus(order.id, action.next);
-            toast.success(`Status berhasil diubah`);
+            toast.success(`Status berhasil diubah ke: ${action.label}`);
         } catch {
+            // Rollback on failure
+            setOrders(prevOrders);
+            if (detailOrder?.id === order.id) {
+                setDetailOrder(order);
+            }
             toast.error('Gagal mengubah status');
         }
     };
@@ -123,6 +138,31 @@ export default function OrderPage() {
         if (paid < cashModal.totalPrice) {
             toast.error('Jumlah bayar kurang dari total');
             return;
+        }
+
+        const prevOrders = [...orders];
+        // Optimistic UI update for payment & completion
+        setOrders((prev) =>
+            prev.map((o) =>
+                o.id === cashModal.id
+                    ? {
+                          ...o,
+                          status: 'completed',
+                          paymentStatus: 'paid',
+                          amountPaid: paid,
+                          changeAmount: paid - cashModal.totalPrice,
+                      }
+                    : o
+            )
+        );
+        if (detailOrder?.id === cashModal.id) {
+            setDetailOrder((prev) => ({
+                ...prev,
+                status: 'completed',
+                paymentStatus: 'paid',
+                amountPaid: paid,
+                changeAmount: paid - cashModal.totalPrice,
+            }));
         }
 
         setSavingPayment(true);
@@ -136,6 +176,7 @@ export default function OrderPage() {
             toast.success('Pembayaran berhasil! Struk tersedia untuk customer.');
             setCashModal(null);
         } catch {
+            setOrders(prevOrders);
             toast.error('Gagal menyimpan pembayaran');
         } finally {
             setSavingPayment(false);
@@ -184,23 +225,66 @@ export default function OrderPage() {
         return [...suggestions].sort((a, b) => a - b).slice(0, 5);
     }, [cashModal]);
 
+    const prevPendingCount = useRef(null);
+    const [manualRefreshing, setManualRefreshing] = useState(false);
+
+    useEffect(() => {
+        if (prevPendingCount.current !== null && pendingCount > prevPendingCount.current) {
+            toast('🔔 Pesanan baru masuk!', {
+                icon: '🛵',
+                style: {
+                    borderRadius: '16px',
+                    background: '#ea580c',
+                    color: '#fff',
+                    fontWeight: 'bold',
+                },
+                duration: 4000,
+            });
+        }
+        prevPendingCount.current = pendingCount;
+    }, [pendingCount]);
+
     if (loading) return <Spinner />;
 
     return (
         <div className="animate-fade-in space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-secondary">Pesanan</h1>
-                    <p className="text-slate-500 text-sm">
-                        {pendingCount > 0 ? `${pendingCount} pesanan menunggu` : 'Semua pesanan terproses'}
+                    <div className="flex items-center gap-3">
+                        <h1 className="text-2xl font-bold text-secondary">Pesanan</h1>
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                            Live Sync
+                        </span>
+                    </div>
+                    <p className="text-slate-500 text-sm mt-0.5">
+                        {pendingCount > 0 ? `${pendingCount} pesanan menunggu konfirmasi` : 'Semua pesanan terproses'}
                     </p>
                 </div>
-                {pendingCount > 0 && (
-                    <div className="relative">
-                        <div className="w-3 h-3 bg-red-500 rounded-full animate-ping absolute -top-1 -right-1" />
-                        <div className="px-3 py-1.5 bg-red-500 text-white text-xs font-bold rounded-full">{pendingCount}</div>
-                    </div>
-                )}
+
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => {
+                            setManualRefreshing(true);
+                            setTimeout(() => {
+                                setManualRefreshing(false);
+                                toast.success('Data pesanan diperbarui');
+                            }, 500);
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-2 bg-white border border-border hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                        title="Segarkan data pesanan"
+                    >
+                        <RefreshCw className={`w-3.5 h-3.5 ${manualRefreshing ? 'animate-spin text-primary' : ''}`} />
+                        <span className="hidden sm:inline">Segarkan</span>
+                    </button>
+
+                    {pendingCount > 0 && (
+                        <div className="relative">
+                            <div className="w-3 h-3 bg-red-500 rounded-full animate-ping absolute -top-1 -right-1" />
+                            <div className="px-3 py-1.5 bg-red-500 text-white text-xs font-bold rounded-full">{pendingCount}</div>
+                        </div>
+                    )}
+                </div>
             </div>
 
             {/* Status Tabs */}
