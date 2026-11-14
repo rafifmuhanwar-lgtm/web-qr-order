@@ -6,6 +6,8 @@ import { applyThemeColor } from '../../utils/themeUtils';
 import { downloadReceiptPNG } from '../../utils/receiptGenerator';
 import { parseOrderDelivery, parseStoreConfig, buildGoogleMapsRouteUrl } from '../../utils/deliveryUtils';
 import { getPayhookConfig } from '../../services/payhookService';
+import { generateDynamicQris, MASTER_QRIS_STATIC } from '../../utils/qrisUtils';
+import { QRCodeSVG } from 'qrcode.react';
 import { Clock, ChefHat, CheckCircle2, Package, QrCode, Banknote, Download, MapPin, Bike, ShoppingBag, Phone, Navigation, Copy, RefreshCw } from 'lucide-react';
 import Spinner from '../../components/ui/Spinner';
 import OrderChatBox from '../../components/chat/OrderChatBox';
@@ -51,6 +53,12 @@ export default function OrderStatusPage() {
     }, [orderId]);
 
     const delivery = useMemo(() => parseOrderDelivery(order), [order]);
+
+    const dynamicQris = useMemo(() => {
+        if (!order?.totalPrice) return '';
+        const rawStatic = getPayhookConfig().rawStaticQris || MASTER_QRIS_STATIC;
+        return generateDynamicQris(rawStatic, order.totalPrice);
+    }, [order]);
 
     // 4-Step Dynamic Flow
     const steps = useMemo(() => {
@@ -200,13 +208,27 @@ export default function OrderStatusPage() {
                         </p>
                     </div>
 
-                    {/* QR Code Container */}
-                    <div className="relative inline-block mx-auto p-3 bg-white rounded-2xl border-2 border-slate-200 shadow-sm">
-                        <img
-                            src={qrisUrl || getPayhookConfig().qrisImageUrl}
-                            alt="QRIS Payhook"
-                            className="w-full max-w-[260px] mx-auto rounded-xl object-contain"
-                        />
+                    {/* Dynamic QR Code Container */}
+                    <div className="relative inline-block mx-auto p-4 bg-white rounded-2xl border-2 border-slate-200 shadow-sm">
+                        {dynamicQris ? (
+                            <QRCodeSVG
+                                value={dynamicQris}
+                                size={220}
+                                level="M"
+                                includeMargin={true}
+                                className="mx-auto rounded-lg"
+                            />
+                        ) : (
+                            <img
+                                src={qrisUrl || getPayhookConfig().qrisImageUrl}
+                                alt="QRIS Payhook"
+                                className="w-full max-w-[240px] mx-auto rounded-xl object-contain"
+                            />
+                        )}
+                        <div className="mt-2.5 flex items-center justify-center gap-1.5 text-[10px] font-bold text-emerald-800 bg-emerald-50 py-1 px-3 rounded-full border border-emerald-200">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            QRIS Dinamis • Nominal Terkunci Otomatis
+                        </div>
                     </div>
 
                     {/* Nominal Box */}

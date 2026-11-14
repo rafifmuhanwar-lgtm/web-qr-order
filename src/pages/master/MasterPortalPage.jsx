@@ -6,7 +6,15 @@ import {
     getPayhookConfig,
     savePayhookConfig,
     confirmPayhookPayment,
+    pingPayhookWebhook,
+    simulatePayhookNotification,
 } from '../../services/payhookService';
+import {
+    generateDynamicQris,
+    MASTER_QRIS_STATIC,
+    MASTER_MERCHANT_INFO,
+} from '../../utils/qrisUtils';
+import { QRCodeSVG } from 'qrcode.react';
 import {
     Shield,
     DollarSign,
@@ -26,6 +34,11 @@ import {
     Utensils,
     Copy,
     Check,
+    Play,
+    Activity,
+    Smartphone,
+    Zap,
+    Sparkles,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -112,6 +125,43 @@ export default function MasterPortalPage() {
         setCopiedField(field);
         toast.success('Disalin ke clipboard');
         setTimeout(() => setCopiedField(''), 2000);
+    };
+
+    const [isPinging, setIsPinging] = useState(false);
+    const [isSimulating, setIsSimulating] = useState(false);
+    const [liveAmount, setLiveAmount] = useState(50123);
+
+    const webhookFullUrl = `${window.location.origin}/api/payment/qris/webhook`;
+
+    const handlePingConnection = async () => {
+        setIsPinging(true);
+        const toastId = toast.loading('Menguji ping ke serverless webhook...');
+        try {
+            const res = await pingPayhookWebhook(payhookConfig.secretKey);
+            toast.success(res.message || 'Koneksi Serverless Payhook AKTIF! 🚀', { id: toastId });
+        } catch (err) {
+            toast.error(err.message || 'Gagal ping webhook', { id: toastId });
+        } finally {
+            setIsPinging(false);
+        }
+    };
+
+    const handleSimulatePayment = async (amount = 50123) => {
+        setIsSimulating(true);
+        const toastId = toast.loading(`Mengirim simulasi mutasi masuk Rp ${Number(amount).toLocaleString('id-ID')}...`);
+        try {
+            const res = await simulatePayhookNotification(amount, payhookConfig.secretKey);
+            if (res.status === 'verified') {
+                toast.success(res.message, { id: toastId });
+                fetchAllData();
+            } else {
+                toast(res.message, { id: toastId, icon: 'ℹ️' });
+            }
+        } catch (err) {
+            toast.error(err.message || 'Gagal simulasi', { id: toastId });
+        } finally {
+            setIsSimulating(false);
+        }
     };
 
     const handleMasterLogout = () => {
@@ -369,228 +419,301 @@ export default function MasterPortalPage() {
 
                 {/* 2. TAB PAYHOOK QRIS HUB */}
                 {activeTab === 'payhook' && (
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        {/* Config Form (2 Cols) */}
-                        <div className="lg:col-span-2 space-y-6">
-                            <div className="bg-slate-900/90 border border-indigo-500/20 rounded-2xl p-6 shadow-xl">
-                                <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-800">
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2.5 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                                            <QrCode className="w-6 h-6" />
-                                        </div>
-                                        <div>
-                                            <h2 className="text-base font-bold text-white">
-                                                Konfigurasi Payhook QRIS Gateway
-                                            </h2>
-                                            <p className="text-xs text-slate-400">
-                                                Kelola merchant QRIS statis & dinamis buatan sendiri
-                                            </p>
-                                        </div>
+                    <div className="space-y-6">
+                        {/* Top Hero Banner */}
+                        <div className="bg-gradient-to-r from-slate-900 via-indigo-950/60 to-slate-900 border border-indigo-500/30 rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
+                            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
+                                <div>
+                                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 mb-3">
+                                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                                        <span>Serverless Webhook Aktif & Terhubung</span>
                                     </div>
-                                    <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                                        Active Direct Mode
-                                    </span>
+                                    <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                                        Pusat Webhook Payhook & QRIS Dinamis Serverless
+                                    </h2>
+                                    <p className="text-xs sm:text-sm text-slate-300 mt-2 max-w-2xl leading-relaxed">
+                                        Setiap mutasi masuk dari aplikasi m-Banking / e-wallet (BCA, Mandiri, BRI, BNI, GoPay, DANA, OVO) yang ditangkap oleh aplikasi Payhook di Android akan otomatis diproses dan mencocokkan kode unik secara real-time.
+                                    </p>
                                 </div>
 
-                                <form onSubmit={handleSavePayhookConfig} className="space-y-4">
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                                                Nama Merchant QRIS
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value={payhookConfig.merchantName}
-                                                onChange={(e) =>
-                                                    setPayhookConfig({
-                                                        ...payhookConfig,
-                                                        merchantName: e.target.value,
-                                                    })
-                                                }
-                                                className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
-                                                required
-                                            />
-                                        </div>
-
-                                        <div>
-                                            <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                                                NMID (National Merchant ID)
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value={payhookConfig.nmid}
-                                                onChange={(e) =>
-                                                    setPayhookConfig({
-                                                        ...payhookConfig,
-                                                        nmid: e.target.value,
-                                                    })
-                                                }
-                                                className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-indigo-500"
-                                                required
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                                            Alamat / Lokasi Merchant
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={payhookConfig.address}
-                                            onChange={(e) =>
-                                                setPayhookConfig({
-                                                    ...payhookConfig,
-                                                    address: e.target.value,
-                                                })
-                                            }
-                                            className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
-                                            required
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                                            File Gambar QRIS (Public URL / Path)
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={payhookConfig.qrisImageUrl}
-                                            onChange={(e) =>
-                                                setPayhookConfig({
-                                                    ...payhookConfig,
-                                                    qrisImageUrl: e.target.value,
-                                                })
-                                            }
-                                            className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-indigo-500"
-                                            required
-                                        />
-                                    </div>
-
-                                    <div className="p-4 bg-slate-950 border border-slate-800 rounded-xl space-y-3">
-                                        <div className="flex items-center justify-between">
-                                            <div>
-                                                <p className="text-xs font-bold text-white">
-                                                    Sertakan 2-Digit Kode Unik Transaksi
-                                                </p>
-                                                <p className="text-[11px] text-slate-400">
-                                                    Menambahkan Rp 11 s/d Rp 99 agar mutasi bank/QRIS mudah dicocokkan otomatis oleh bot
-                                                </p>
-                                            </div>
-                                            <input
-                                                type="checkbox"
-                                                checked={payhookConfig.useUniqueCode}
-                                                onChange={(e) =>
-                                                    setPayhookConfig({
-                                                        ...payhookConfig,
-                                                        useUniqueCode: e.target.checked,
-                                                    })
-                                                }
-                                                className="w-4 h-4 accent-indigo-500 rounded cursor-pointer"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="pt-2">
-                                        <button
-                                            type="submit"
-                                            disabled={isSavingConfig}
-                                            className="w-full sm:w-auto px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-indigo-600/30 transition-all flex items-center justify-center gap-2 cursor-pointer"
-                                        >
-                                            <Save className="w-4 h-4" />
-                                            {isSavingConfig ? 'Menyimpan...' : 'Simpan Perubahan QRIS'}
-                                        </button>
-                                    </div>
-                                </form>
-                            </div>
-
-                            {/* Webhook Developer Guide */}
-                            <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 shadow-xl">
-                                <div className="flex items-center gap-2 mb-3">
-                                    <Terminal className="w-5 h-5 text-indigo-400" />
-                                    <h3 className="text-sm font-bold text-white">
-                                        Panduan Webhook Payhook (Bot Notifier / Mutasi)
-                                    </h3>
-                                </div>
-                                <p className="text-xs text-slate-400 mb-4 leading-relaxed">
-                                    Integrasikan webhook listener dari mutasi bank (misal BCA/BRI/BSI/Mandiri atau QRIS bot). Kirim POST JSON ke backend atau panggil fungsi konfirmasi:
-                                </p>
-                                <div className="bg-slate-950 p-4 rounded-xl font-mono text-[11px] text-indigo-300 border border-slate-800 overflow-x-auto relative">
+                                <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 shrink-0">
                                     <button
                                         type="button"
-                                        onClick={() =>
-                                            handleCopy(
-                                                `{\n  "event": "payment.success",\n  "order_id": "ORD-123456",\n  "amount_paid": 35027,\n  "nmid": "${payhookConfig.nmid}",\n  "signature": "ph_sig_verified"\n}`,
-                                                'webhook'
-                                            )
-                                        }
-                                        className="absolute top-3 right-3 px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[10px] flex items-center gap-1 border border-slate-700 transition-colors cursor-pointer"
+                                        onClick={handlePingConnection}
+                                        disabled={isPinging}
+                                        className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-white border border-slate-700 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md"
                                     >
-                                        {copiedField === 'webhook' ? (
-                                            <Check className="w-3 h-3 text-green-400" />
-                                        ) : (
-                                            <Copy className="w-3 h-3" />
-                                        )}
-                                        {copiedField === 'webhook' ? 'Tersalin' : 'Copy JSON'}
+                                        <Activity className={`w-4 h-4 text-emerald-400 ${isPinging ? 'animate-spin' : ''}`} />
+                                        <span>{isPinging ? 'Menguji...' : 'Uji Ping Koneksi'}</span>
                                     </button>
-                                    <pre>{`// Contoh Payload Webhook Masuk (Payhook)
-{
-  "event": "payment.success",
-  "order_id": "ORD-123456",
-  "amount_paid": 35027,
-  "nmid": "${payhookConfig.nmid}",
-  "signature": "ph_sig_verified"
-}`}</pre>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleSimulatePayment(50123)}
+                                        disabled={isSimulating}
+                                        className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-xs font-bold text-white shadow-lg shadow-indigo-600/30 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                                    >
+                                        <Zap className="w-4 h-4 text-amber-300" />
+                                        <span>{isSimulating ? 'Memproses...' : 'Simulasi Notifikasi (Rp 50.123)'}</span>
+                                    </button>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Customer QRIS Preview Card (1 Col) */}
-                        <div className="space-y-4">
-                            <div className="bg-slate-900/90 border border-indigo-500/20 rounded-2xl p-5 shadow-xl">
-                                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-3 text-center">
-                                    Preview Tampilan QRIS Pelanggan
-                                </span>
-
-                                <div className="bg-white rounded-2xl p-4 shadow-xl text-slate-900 border border-slate-200">
-                                    <div className="text-center pb-3 border-b border-dashed border-slate-200">
-                                        <p className="text-xs font-bold uppercase tracking-tight text-slate-900">
-                                            {payhookConfig.merchantName}
-                                        </p>
-                                        <p className="text-[10px] text-slate-500 mt-0.5">
-                                            {payhookConfig.address}
-                                        </p>
-                                        <p className="text-[10px] font-mono text-slate-600 mt-1 font-semibold">
-                                            NMID: {payhookConfig.nmid}
-                                        </p>
-                                    </div>
-
-                                    <div className="my-3 flex justify-center bg-slate-50 p-2 rounded-xl">
-                                        <img
-                                            src={payhookConfig.qrisImageUrl}
-                                            alt="QRIS Merchant"
-                                            className="w-48 h-48 object-contain rounded-lg shadow-sm"
-                                            onError={(e) => {
-                                                e.target.src = '/logo.png';
-                                            }}
-                                        />
-                                    </div>
-
-                                    <div className="bg-indigo-50 rounded-xl p-2.5 text-center">
-                                        <p className="text-[11px] text-indigo-700 font-medium">Contoh Tagihan Unik:</p>
-                                        <p className="text-base font-black text-indigo-900 font-mono">
-                                            Rp 35.042
-                                        </p>
-                                        <p className="text-[9px] text-indigo-500 mt-0.5">
-                                            Termasuk 2-digit kode unik verifikasi otomatis
-                                        </p>
-                                    </div>
+                        {/* Webhook Configuration Cards */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {/* Card 1: Webhook URL */}
+                            <div className="bg-slate-900/90 border border-indigo-500/20 rounded-2xl p-6 shadow-xl space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                                        1. URL Webhook (Kolom Webhook URL di Payhook)
+                                    </span>
+                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                        Direkomendasikan
+                                    </span>
                                 </div>
 
-                                <div className="mt-4 p-3 bg-slate-950/60 rounded-xl border border-slate-800 text-[11px] text-slate-400">
-                                    💡 QRIS ini langsung muncul di halaman status pesanan pembeli setelah klik Bayar Sekarang.
+                                <div className="flex items-center gap-2 bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                                    <input
+                                        type="text"
+                                        readOnly
+                                        value={webhookFullUrl}
+                                        className="flex-1 bg-transparent text-xs text-white font-mono outline-none"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => handleCopy(webhookFullUrl, 'webhook_url')}
+                                        className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer shrink-0"
+                                    >
+                                        {copiedField === 'webhook_url' ? <Check className="w-3.5 h-3.5 text-green-300" /> : <Copy className="w-3.5 h-3.5" />}
+                                        <span>{copiedField === 'webhook_url' ? 'Tersalin' : 'Salin'}</span>
+                                    </button>
+                                </div>
+                                <p className="text-[11px] text-slate-500">
+                                    Tempelkan URL ini di kolom Webhook URL pada aplikasi Payhook Android Anda.
+                                </p>
+                            </div>
+
+                            {/* Card 2: Secret Key Header */}
+                            <div className="bg-slate-900/90 border border-indigo-500/20 rounded-2xl p-6 shadow-xl space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                                        2. Secret Key Header (Kolom Header di Payhook)
+                                    </span>
+                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                                        Keamanan X-API-KEY
+                                    </span>
+                                </div>
+
+                                <div className="flex items-center gap-2 bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                                    <input
+                                        type="text"
+                                        readOnly
+                                        value={`x-api-key: ${payhookConfig.secretKey}`}
+                                        className="flex-1 bg-transparent text-xs text-white font-mono outline-none"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => handleCopy(payhookConfig.secretKey, 'secret_key')}
+                                        className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer shrink-0"
+                                    >
+                                        {copiedField === 'secret_key' ? <Check className="w-3.5 h-3.5 text-green-300" /> : <Copy className="w-3.5 h-3.5" />}
+                                        <span>{copiedField === 'secret_key' ? 'Tersalin' : 'Salin'}</span>
+                                    </button>
+                                </div>
+
+                                <div className="text-[11px] text-slate-400 font-mono bg-slate-950/70 p-2 rounded-lg border border-slate-800/80">
+                                    <span className="text-slate-500">Format Header Autentikasi:</span>{' '}
+                                    <span className="text-indigo-400 font-bold">Header Name:</span> x-api-key |{' '}
+                                    <span className="text-purple-400 font-bold">Header Value:</span> {payhookConfig.secretKey}
                                 </div>
                             </div>
+                        </div>
+
+                        {/* 3 Langkah Praktis Setting Aplikasi Payhook di Android */}
+                        <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-7 shadow-xl space-y-5">
+                            <div>
+                                <span className="text-xs font-mono uppercase tracking-wider text-indigo-400 font-bold">
+                                    Panduan Praktis
+                                </span>
+                                <h3 className="text-base sm:text-lg font-bold text-white mt-1">
+                                    3 Langkah Praktis Setting Aplikasi Payhook di Android
+                                </h3>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div className="p-4 bg-slate-950 border border-slate-800 rounded-2xl relative">
+                                    <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white font-black text-sm flex items-center justify-center mb-3 shadow-md shadow-indigo-600/30">
+                                        1
+                                    </div>
+                                    <h4 className="font-bold text-white text-xs mb-1">Pilih Aplikasi Bank</h4>
+                                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                                        Buka Payhook di HP Android, centang aplikasi yang menerima uang masuk: BCA mobile, Livin Mandiri, GoBiz / GoPay, atau DANA Bisnis.
+                                    </p>
+                                </div>
+
+                                <div className="p-4 bg-slate-950 border border-slate-800 rounded-2xl relative">
+                                    <div className="w-8 h-8 rounded-lg bg-purple-600 text-white font-black text-sm flex items-center justify-center mb-3 shadow-md shadow-purple-600/30">
+                                        2
+                                    </div>
+                                    <h4 className="font-bold text-white text-xs mb-1">Tempel Webhook URL</h4>
+                                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                                        Masukkan URL: <span className="text-indigo-300 font-mono break-all">{webhookFullUrl}</span> pada kolom Webhook URL di aplikasi Payhook.
+                                    </p>
+                                </div>
+
+                                <div className="p-4 bg-slate-950 border border-slate-800 rounded-2xl relative">
+                                    <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white font-black text-sm flex items-center justify-center mb-3 shadow-md shadow-emerald-600/30">
+                                        3
+                                    </div>
+                                    <h4 className="font-bold text-white text-xs mb-1">Isi Header Secret</h4>
+                                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                                        Di kolom Header tambahkan <span className="text-emerald-300 font-mono">Name: x-api-key</span> dan <span className="text-emerald-300 font-mono">Value: {payhookConfig.secretKey}</span>.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Barcode QRIS Master Platform (Dukungan QRIS Dinamis Otomatis) */}
+                        <div className="bg-slate-900/90 border border-indigo-500/20 rounded-3xl p-6 sm:p-7 shadow-xl">
+                            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between pb-6 border-b border-slate-800 gap-4">
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <h3 className="text-base sm:text-lg font-bold text-white">
+                                            Barcode QRIS Master Platform (Dukungan QRIS Dinamis Otomatis)
+                                        </h3>
+                                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                                            Dinamis & Otomatis Terkunci
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-slate-400 mt-1">
+                                        Barcode ini digunakan di seluruh transaksi customer. Sistem otomatis meng-inject Tag 54 + CRC16 sehingga nominal langsung terkunci di HP pembeli saat scan.
+                                    </p>
+                                </div>
+
+                                <div className="flex items-center gap-2 bg-slate-950 p-2 rounded-xl border border-slate-800">
+                                    <span className="text-xs text-slate-400 pl-2">Tes Nominal:</span>
+                                    <div className="flex items-center gap-1">
+                                        <span className="text-xs text-indigo-400 font-bold">Rp</span>
+                                        <input
+                                            type="number"
+                                            value={liveAmount}
+                                            onChange={(e) => setLiveAmount(Number(e.target.value) || 0)}
+                                            className="w-24 bg-transparent text-xs text-white font-bold font-mono outline-none"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-6">
+                                {/* QR Code Display (1 Col) */}
+                                <div className="flex flex-col items-center justify-center p-6 bg-slate-950 rounded-2xl border border-slate-800">
+                                    <div className="p-4 bg-white rounded-2xl shadow-xl">
+                                        <QRCodeSVG
+                                            value={generateDynamicQris(payhookConfig.rawStaticQris || MASTER_QRIS_STATIC, liveAmount)}
+                                            size={200}
+                                            level="M"
+                                            includeMargin={true}
+                                            className="mx-auto rounded-lg"
+                                        />
+                                    </div>
+                                    <div className="mt-4 text-center">
+                                        <p className="text-xs font-bold text-emerald-400 flex items-center justify-center gap-1.5">
+                                            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                                            Nominal Terkunci: Rp {Number(liveAmount).toLocaleString('id-ID')}
+                                        </p>
+                                        <p className="text-[10px] text-slate-500 mt-1">
+                                            Coba scan dengan BCA/GoPay/Dana, nominal langsung terkunci!
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* Metadata Breakdown (2 Cols) */}
+                                <div className="lg:col-span-2 space-y-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                                        <div className="p-3.5 bg-slate-950 rounded-xl border border-slate-800">
+                                            <span className="text-[10px] text-slate-500 uppercase font-semibold block">Merchant Terdaftar</span>
+                                            <span className="font-bold text-white text-xs mt-0.5 block">
+                                                {payhookConfig.merchantName}
+                                            </span>
+                                            <span className="text-[11px] text-slate-400 mt-0.5 block">
+                                                {payhookConfig.address}
+                                            </span>
+                                        </div>
+
+                                        <div className="p-3.5 bg-slate-950 rounded-xl border border-slate-800">
+                                            <span className="text-[10px] text-slate-500 uppercase font-semibold block">NMID Nasional (ASPI)</span>
+                                            <span className="font-bold text-indigo-400 font-mono text-sm mt-0.5 block">
+                                                {payhookConfig.nmid}
+                                            </span>
+                                            <span className="text-[11px] text-slate-400 mt-0.5 block">
+                                                Provider: {payhookConfig.provider || 'GoPay / GoBiz Merchant'}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div className="p-4 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
+                                        <div className="flex items-center gap-2">
+                                            <Sparkles className="w-4 h-4 text-amber-400" />
+                                            <span className="text-xs font-bold text-white">Fitur Otomatis: Inject Tag 54 + CRC16 Checksum</span>
+                                        </div>
+                                        <p className="text-xs text-slate-400 leading-relaxed">
+                                            💡 Setiap kali customer memilih bayar via QRIS, sistem otomatis mengubah QRIS ini menjadi <strong className="text-white">QRIS Dinamis</strong> dengan nominal yang terkunci persis sesuai total tagihan (+ 3 digit kode unik acak). Pelanggan tidak perlu mengetik nominal lagi di HP mereka, meminimalisir kesalahan transfer hingga 100%!
+                                        </p>
+                                    </div>
+
+                                    {/* Raw EMVCo Payload Preview */}
+                                    <div className="p-3 bg-slate-950 rounded-xl border border-slate-800/80 font-mono text-[10px] text-slate-400">
+                                        <span className="text-slate-500 block mb-1">Generated EMVCo Dynamic Payload:</span>
+                                        <p className="break-all text-indigo-300">
+                                            {generateDynamicQris(payhookConfig.rawStaticQris || MASTER_QRIS_STATIC, liveAmount)}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Editor Config Credentials (Collapsible / Bottom) */}
+                        <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
+                            <h3 className="text-sm font-bold text-white">Kredensial & Pengaturan Tambahan</h3>
+                            <form onSubmit={handleSavePayhookConfig} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+                                <div>
+                                    <label className="block text-slate-400 mb-1">Nama Merchant</label>
+                                    <input
+                                        type="text"
+                                        value={payhookConfig.merchantName}
+                                        onChange={(e) => setPayhookConfig({ ...payhookConfig, merchantName: e.target.value })}
+                                        className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-indigo-500"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-slate-400 mb-1">NMID</label>
+                                    <input
+                                        type="text"
+                                        value={payhookConfig.nmid}
+                                        onChange={(e) => setPayhookConfig({ ...payhookConfig, nmid: e.target.value })}
+                                        className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-mono outline-none focus:border-indigo-500"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-slate-400 mb-1">Secret Key (x-api-key)</label>
+                                    <input
+                                        type="text"
+                                        value={payhookConfig.secretKey}
+                                        onChange={(e) => setPayhookConfig({ ...payhookConfig, secretKey: e.target.value })}
+                                        className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-mono outline-none focus:border-indigo-500"
+                                    />
+                                </div>
+                                <div className="flex items-end">
+                                    <button
+                                        type="submit"
+                                        disabled={isSavingConfig}
+                                        className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                                    >
+                                        <Save className="w-3.5 h-3.5" />
+                                        <span>{isSavingConfig ? 'Menyimpan...' : 'Simpan Kredensial'}</span>
+                                    </button>
+                                </div>
+                            </form>
                         </div>
                     </div>
                 )}

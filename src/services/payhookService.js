@@ -1,14 +1,24 @@
 import { supabase } from '../config/supabase';
+import {
+    generateDynamicQris,
+    MASTER_QRIS_STATIC,
+    MASTER_MERCHANT_INFO,
+    generateUniqueAmount,
+} from '../utils/qrisUtils';
 
 const PAYHOOK_STORAGE_KEY = 'emakan_payhook_config';
 
 export const DEFAULT_PAYHOOK_CONFIG = {
-    merchantName: 'BAYAR QRIS bypipx, Ahli Chiropractic',
-    address: 'PERUM GRIYA SETU PERMAI BLOK D.5NO.20',
-    nmid: 'ID1026490305079',
+    merchantName: MASTER_MERCHANT_INFO.name,
+    address: MASTER_MERCHANT_INFO.address,
+    nmid: MASTER_MERCHANT_INFO.nmid,
+    provider: MASTER_MERCHANT_INFO.provider,
+    rawStaticQris: MASTER_QRIS_STATIC,
     qrisImageUrl: '/payhook-qris.jpg',
     useUniqueCode: true,
-    webhookSecret: 'ph_sec_' + Math.random().toString(36).substring(2, 12),
+    useDynamicQris: true,
+    secretKey: 'emakan_qris_secret_2026',
+    webhookPath: '/api/payment/qris/webhook',
 };
 
 export function getPayhookConfig() {
@@ -26,28 +36,38 @@ export function savePayhookConfig(newConfig) {
 }
 
 /**
- * Generate unique payment nominal (e.g. Total Rp 35.000 -> Rp 35.027)
- * Memudahkan bot mutasi Payhook membaca transfer unik
+ * Generate Tagihan QRIS Dinamis + 3 Digit Kode Unik
+ * Nominal langsung terkunci otomatis saat di-scan pelanggan
  */
 export function generatePayhookInvoice(baseAmount, orderId) {
     const config = getPayhookConfig();
     let uniqueCode = 0;
+    let payAmount = Number(baseAmount) || 0;
+
     if (config.useUniqueCode) {
-        // Deterministic unique 2-digit number based on order ID or time
-        const hash = (orderId || '').split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-        uniqueCode = (hash % 89) + 11; // 11 to 99
+        const result = generateUniqueAmount(baseAmount, orderId);
+        uniqueCode = result.uniqueCode;
+        payAmount = result.totalAmount;
     }
 
-    const payAmount = Number(baseAmount) + uniqueCode;
+    // Generate EMVCo dynamic QRIS payload dengan Tag 54 + CRC16
+    let dynamicQrisPayload = '';
+    if (config.useDynamicQris) {
+        dynamicQrisPayload = generateDynamicQris(config.rawStaticQris, payAmount);
+    }
+
     return {
         orderId,
-        baseAmount,
+        baseAmount: Number(baseAmount),
         uniqueCode,
         payAmount,
         merchantName: config.merchantName,
         nmid: config.nmid,
         address: config.address,
+        provider: config.provider,
         qrisImageUrl: config.qrisImageUrl,
+        dynamicQrisPayload,
+        isDynamicLocked: Boolean(dynamicQrisPayload),
     };
 }
 
@@ -73,6 +93,72 @@ export async function confirmPayhookPayment(orderId, amountPaid) {
         .eq('id', orderId);
 
     if (error) throw error;
+
+    // Trigger instant broadcast ke seluruh UI
+    try {
+        const syncChannel = supabase.channel('order-sync-global');
+        await syncChannel.send({
+            type: 'broadcast',
+            event: 'order_change',
+            payload: { orderId, paymentStatus: 'paid', type: 'manual_verification' },
+        });
+    } catch {
+        // ignore
+    }
+
     return true;
 }
 
+/**
+ * Uji Ping Koneksi ke Endpoint Serverless Webhook
+ */
+export async function pingPayhookWebhook(secretKey) {
+    const config = getPayhookConfig();
+    const key = secretKey || config.secretKey;
+    const url = `${window.location.origin}${config.webhookPath}`;
+
+    const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': key,
+        },
+        body: JSON.stringify({ action: 'ping', test: true }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+        throw new Error(data?.error || `HTTP ${res.status}: Gagal ping webhook`);
+    }
+    return data;
+}
+
+/**
+ * Simulasi Notifikasi Mutasi Masuk dari HP Android (misal Rp 50.123)
+ */
+export async function simulatePayhookNotification(amount = 50123, secretKey) {
+    const config = getPayhookConfig();
+    const key = secretKey || config.secretKey;
+    const url = `${window.location.origin}${config.webhookPath}`;
+
+    const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': key,
+        },
+        body: JSON.stringify({
+            amount: Number(amount),
+            nominal: Number(amount),
+            bank: 'GOPAY_SIMULATION',
+            text: `Dana Masuk Rp ${Number(amount).toLocaleString('id-ID')} dari GO-PAY MERCHANT`,
+            description: 'Simulasi Payhook Mutasi Test',
+        }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+        throw new Error(data?.error || `HTTP ${res.status}: Simulasi gagal`);
+    }
+    return data;
+}
