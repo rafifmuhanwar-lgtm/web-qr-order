@@ -74,12 +74,13 @@ export default function AdminLayout() {
 
             {/* Sidebar */}
             <aside className={`
-        fixed top-0 left-0 bottom-0 z-50 w-64 bg-secondary
+        fixed inset-y-0 left-0 z-50 w-64 bg-secondary flex flex-col justify-between
         transform transition-transform duration-300 ease-out
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         lg:translate-x-0
       `}>
-                <div className="flex items-center justify-between p-5 border-b border-white/10">
+                {/* Brand Header */}
+                <div className="flex items-center justify-between p-5 border-b border-white/10 shrink-0">
                     <div className="flex items-center gap-3">
                         <img src="/logo.png" className="w-10 h-10 object-contain rounded-xl shadow-md" alt="eMakan" />
                         <div>
@@ -92,17 +93,18 @@ export default function AdminLayout() {
                     </button>
                 </div>
 
-                <nav className="p-3 space-y-1 mt-2">
+                {/* Navigation Items (Scrollable when screen height is small) */}
+                <nav className="p-3 space-y-1 flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
                     {isMaster && (
-                        <div className="mb-3 pb-2 border-b border-white/10">
+                        <div className="mb-2 pb-2 border-b border-white/10">
                             <NavLink
                                 to="/master-portal"
                                 onClick={() => setSidebarOpen(false)}
-                                className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-amber-500/20 to-purple-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30 transition-all shadow-md group"
+                                className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-amber-500/20 to-purple-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30 transition-all shadow-md group"
                             >
-                                <Shield className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
-                                <span>Portal Master Admin</span>
-                                <span className="ml-auto text-[9px] px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 border border-amber-400/30">
+                                <Shield className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform shrink-0" />
+                                <span className="truncate">Portal Master Admin</span>
+                                <span className="ml-auto text-[9px] px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 border border-amber-400/30 shrink-0">
                                     PRO
                                 </span>
                             </NavLink>
@@ -115,32 +117,33 @@ export default function AdminLayout() {
                             end={item.end}
                             onClick={() => setSidebarOpen(false)}
                             className={({ isActive }) => `
-                flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium
+                flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium
                 transition-all duration-200
                 ${isActive
-                                    ? 'bg-primary text-white shadow-lg shadow-primary/30'
+                                    ? 'bg-primary text-white shadow-md shadow-primary/30'
                                     : 'text-slate-300 hover:bg-white/10 hover:text-white'
                                 }
               `}
                         >
-                            <item.icon className="w-5 h-5" />
-                            {item.label}
+                            <item.icon className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
+                            <span className="truncate">{item.label}</span>
                         </NavLink>
                     ))}
                 </nav>
 
-                <div className="absolute bottom-0 left-0 right-0 p-3 border-t border-white/10">
-                    <div className="px-4 py-2 mb-2">
-                        <p className="text-white text-sm font-medium truncate">{user?.email}</p>
-                        <p className="text-slate-400 text-xs">Administrator</p>
+                {/* User Profile & Logout Footer (Fixed at bottom of flex column, never overlaps) */}
+                <div className="p-3 border-t border-white/10 bg-secondary shrink-0">
+                    <div className="px-3 py-1.5 mb-1 bg-white/5 rounded-xl border border-white/5">
+                        <p className="text-white text-xs font-semibold truncate" title={user?.email}>{user?.email}</p>
+                        <p className="text-slate-400 text-[10px]">Administrator</p>
                     </div>
                     <button
                         onClick={handleLogout}
-                        className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-medium
+                        className="flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-xs font-semibold
               text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
                     >
-                        <LogOut className="w-5 h-5" />
-                        Keluar
+                        <LogOut className="w-4 h-4 shrink-0" />
+                        <span>Keluar</span>
                     </button>
                 </div>
             </aside>
