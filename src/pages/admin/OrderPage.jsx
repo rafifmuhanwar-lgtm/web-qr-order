@@ -595,12 +595,13 @@ export default function OrderPage() {
                                             </div>
                                         </div>
 
-                                        {/* In-App Live Chat Drawer */}
+                                        {/* In-App Live Chat Drawer (Collapsible) */}
                                         <div className="pt-1">
                                             <OrderChatBox
                                                 orderId={detailOrder.id}
                                                 currentNotes={detailOrder.notes}
                                                 role="resto"
+                                                variant="collapsible"
                                                 senderName={storeData?.name || 'Pihak Resto'}
                                                 targetWhatsapp={delivery.phone || detailOrder.customerPhone}
                                             />
