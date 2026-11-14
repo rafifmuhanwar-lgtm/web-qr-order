@@ -83,13 +83,30 @@ export async function confirmPayhookPayment(orderId, amountPaid) {
 
     if (fetchErr || !order) throw new Error('Pesanan tidak ditemukan');
 
+    let updatedNotes = order.notes;
+    if (typeof updatedNotes === 'string' && updatedNotes.startsWith('{')) {
+        try {
+            const parsed = JSON.parse(updatedNotes);
+            parsed.amountPaid = amountPaid || order.totalPrice;
+            parsed.paidAt = new Date().toISOString();
+            parsed.payhookVerified = true;
+            updatedNotes = JSON.stringify(parsed);
+        } catch {
+            // ignore
+        }
+    }
+
+    const updatePayload = {
+        paymentStatus: 'paid',
+        paymentMethod: 'qris',
+    };
+    if (updatedNotes) {
+        updatePayload.notes = updatedNotes;
+    }
+
     const { error } = await supabase
         .from('orders')
-        .update({
-            paymentStatus: 'paid',
-            paymentMethod: 'qris',
-            amountPaid: amountPaid || order.totalPrice,
-        })
+        .update(updatePayload)
         .eq('id', orderId);
 
     if (error) throw error;

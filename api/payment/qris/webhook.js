@@ -148,13 +148,30 @@ export default async function handler(req, res) {
         }
 
         // 6. Update Status Pesanan Menjadi LUNAS (PAID)
+        let updatedNotes = matchedOrder.notes;
+        if (typeof updatedNotes === 'string' && updatedNotes.startsWith('{')) {
+            try {
+                const parsed = JSON.parse(updatedNotes);
+                parsed.amountPaid = amount;
+                parsed.paidAt = new Date().toISOString();
+                parsed.payhookVerified = true;
+                updatedNotes = JSON.stringify(parsed);
+            } catch {
+                // ignore
+            }
+        }
+
+        const updatePayload = {
+            paymentStatus: 'paid',
+            paymentMethod: 'qris',
+        };
+        if (updatedNotes) {
+            updatePayload.notes = updatedNotes;
+        }
+
         const { error: updateErr } = await supabase
             .from('orders')
-            .update({
-                paymentStatus: 'paid',
-                paymentMethod: 'qris',
-                amountPaid: amount,
-            })
+            .update(updatePayload)
             .eq('id', matchedOrder.id);
 
         if (updateErr) {
