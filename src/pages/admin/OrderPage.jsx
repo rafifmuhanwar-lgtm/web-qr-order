@@ -207,7 +207,7 @@ export default function OrderPage() {
         });
     };
 
-    const pendingCount = orders.filter((o) => o.status === 'pending').length;
+    const pendingCount = foodOrders.filter((o) => o.status === 'pending').length;
 
     // Cash modal computed
     const changeAmount = useMemo(() => {

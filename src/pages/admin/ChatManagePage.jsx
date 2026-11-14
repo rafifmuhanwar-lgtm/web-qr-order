@@ -5,21 +5,18 @@ import {
     getActiveStoreChats,
     sendChatMessage,
     purgeExpiredChats,
-    CHAT_TTL_MS,
     isChatExpired,
     chatSyncChannel,
 } from '../../services/chatService';
 import {
     MessageSquare,
     Send,
-    User,
-    Store,
     Clock,
     RefreshCw,
     Search,
     CheckCheck,
-    AlertCircle,
-    ShoppingBag,
+    ArrowLeft,
+    Sparkles,
 } from 'lucide-react';
 import Spinner from '../../components/ui/Spinner';
 import toast from 'react-hot-toast';
@@ -28,6 +25,7 @@ export default function ChatManagePage() {
     const { storeId, storeData } = useAuth();
     const [threads, setThreads] = useState([]);
     const [activeThreadId, setActiveThreadId] = useState(null);
+    const [mobileShowRoom, setMobileShowRoom] = useState(false);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [search, setSearch] = useState('');
@@ -43,14 +41,20 @@ export default function ChatManagePage() {
             const data = await getActiveStoreChats(storeId);
             setThreads(data);
 
-            // Auto-select first thread if none selected or current is gone
+            // On desktop (screen >= 768px), auto-select first thread if none selected or current is gone
             if (data.length > 0) {
                 setActiveThreadId((prev) => {
                     const exists = data.some((t) => t.id === prev);
-                    return exists ? prev : data[0].id;
+                    if (exists) return prev;
+                    // Only auto-select on desktop, so mobile users stay on list view
+                    if (typeof window !== 'undefined' && window.innerWidth >= 768) {
+                        return data[0].id;
+                    }
+                    return null;
                 });
             } else {
                 setActiveThreadId(null);
+                setMobileShowRoom(false);
             }
         } catch (err) {
             console.error('Failed to load chats:', err);
@@ -145,7 +149,13 @@ export default function ChatManagePage() {
     // Scroll to latest message
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [activeChats.length, activeThreadId]);
+    }, [activeChats.length, activeThreadId, mobileShowRoom]);
+
+    // Select thread handler (supports mobile navigation)
+    const handleSelectThread = (threadId) => {
+        setActiveThreadId(threadId);
+        setMobileShowRoom(true);
+    };
 
     // Send response with Instant Optimistic UI Update
     const handleSend = async (textToSend) => {
@@ -216,26 +226,26 @@ export default function ChatManagePage() {
     }
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
             {/* Header Page */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                 <div>
                     <div className="flex items-center gap-2">
-                        <h1 className="text-2xl font-bold text-secondary">Live Chat Pelanggan</h1>
+                        <h1 className="text-xl sm:text-2xl font-bold text-secondary">Live Chat Pelanggan</h1>
                         <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-orange-500/10 text-orange-600 border border-orange-200">
                             {threads.length} Aktif
                         </span>
                     </div>
-                    <p className="text-slate-500 text-xs mt-1">
+                    <p className="text-slate-500 text-xs mt-0.5 sm:mt-1">
                         Obrolan langsung in-app dengan pelanggan (Pesan otomatis terhapus dari sistem & database setelah 6 jam)
                     </p>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 self-start sm:self-auto">
                     <button
                         onClick={fetchChats}
                         disabled={refreshing}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-lg text-xs font-medium transition-colors cursor-pointer"
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-lg text-xs font-medium transition-colors cursor-pointer shadow-2xs"
                         title="Perbarui daftar chat"
                     >
                         <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin text-orange-500' : ''}`} />
@@ -244,10 +254,14 @@ export default function ChatManagePage() {
                 </div>
             </div>
 
-            {/* Main Chat Interface (Split Pane) */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden grid grid-cols-1 md:grid-cols-12 h-[calc(100vh-14rem)] min-h-[520px]">
-                {/* Left Panel: Conversation Threads List (4 Cols) */}
-                <div className="md:col-span-4 border-r border-slate-200 flex flex-col h-full bg-slate-50/50">
+            {/* Main Chat Interface (Responsive: Stack on Mobile, Side-by-Side on Desktop) */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col md:grid md:grid-cols-12 h-[calc(100dvh-12.5rem)] md:h-[calc(100vh-14rem)] min-h-[480px]">
+                {/* Left Panel: Conversation Threads List (Full width on mobile when !mobileShowRoom, 4 cols on desktop) */}
+                <div
+                    className={`md:col-span-4 border-r border-slate-200 flex flex-col h-full bg-slate-50/50 ${
+                        mobileShowRoom ? 'hidden md:flex' : 'flex'
+                    }`}
+                >
                     {/* Search & Info */}
                     <div className="p-3 border-b border-slate-200 bg-white space-y-2">
                         <div className="relative">
@@ -286,10 +300,10 @@ export default function ChatManagePage() {
                                     <button
                                         key={thread.id}
                                         type="button"
-                                        onClick={() => setActiveThreadId(thread.id)}
-                                        className={`w-full p-3.5 text-left transition-colors flex items-start gap-3 cursor-pointer ${
+                                        onClick={() => handleSelectThread(thread.id)}
+                                        className={`w-full p-3 sm:p-3.5 text-left transition-colors flex items-start gap-3 cursor-pointer ${
                                             isSelected
-                                                ? 'bg-orange-50/80 border-l-4 border-orange-500'
+                                                ? 'bg-orange-50/80 md:border-l-4 md:border-orange-500'
                                                 : 'hover:bg-slate-100/70 bg-white'
                                         }`}
                                     >
@@ -301,7 +315,7 @@ export default function ChatManagePage() {
                                                 <h4 className="text-xs font-bold text-slate-900 truncate">
                                                     {thread.customerName || 'Pelanggan'}
                                                 </h4>
-                                                <span className="text-[10px] text-slate-400 font-mono">
+                                                <span className="text-[10px] text-slate-400 font-mono shrink-0 ml-1">
                                                     {lastChat?.timestamp
                                                         ? new Date(lastChat.timestamp).toLocaleTimeString('id-ID', {
                                                               hour: '2-digit',
@@ -312,11 +326,13 @@ export default function ChatManagePage() {
                                             </div>
 
                                             <div className="flex items-center gap-1.5 mt-0.5">
-                                                <span className={`text-[10px] px-1.5 py-0.2 rounded font-medium ${
-                                                    thread.orderType === 'inquiry' || thread.orderType === 'customer_chat'
-                                                        ? 'bg-amber-100 text-amber-800'
-                                                        : 'bg-blue-100 text-blue-800'
-                                                }`}>
+                                                <span
+                                                    className={`text-[10px] px-1.5 py-0.2 rounded font-medium ${
+                                                        thread.orderType === 'inquiry' || thread.orderType === 'customer_chat'
+                                                            ? 'bg-amber-100 text-amber-800'
+                                                            : 'bg-blue-100 text-blue-800'
+                                                    }`}
+                                                >
                                                     {thread.orderType === 'inquiry' || thread.orderType === 'customer_chat'
                                                         ? 'Tanya Menu'
                                                         : `Order #${thread.id.slice(0, 6)}`}
@@ -328,9 +344,11 @@ export default function ChatManagePage() {
                                                 )}
                                             </div>
 
-                                            <p className={`text-xs mt-1 truncate ${
-                                                isFromCustomer ? 'font-semibold text-slate-800' : 'text-slate-500'
-                                            }`}>
+                                            <p
+                                                className={`text-xs mt-1 truncate ${
+                                                    isFromCustomer ? 'font-semibold text-slate-800' : 'text-slate-500'
+                                                }`}
+                                            >
                                                 {lastChat?.text || 'Mulai percakapan...'}
                                             </p>
                                         </div>
@@ -341,45 +359,56 @@ export default function ChatManagePage() {
                     </div>
                 </div>
 
-                {/* Right Panel: Active Chat Room (8 Cols) */}
-                <div className="md:col-span-8 flex flex-col h-full bg-white">
+                {/* Right Panel: Active Chat Room (Full width on mobile when mobileShowRoom, 8 cols on desktop) */}
+                <div
+                    className={`md:col-span-8 flex flex-col h-full bg-white ${
+                        !mobileShowRoom ? 'hidden md:flex' : 'flex'
+                    }`}
+                >
                     {activeThread ? (
                         <>
                             {/* Chat Room Header */}
-                            <div className="p-3.5 border-b border-slate-200 flex items-center justify-between bg-slate-50/70">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-9 h-9 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-xs">
+                            <div className="p-3 sm:p-3.5 border-b border-slate-200 flex items-center justify-between bg-slate-50/80 shrink-0">
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                    {/* Mobile Back Button to Thread List */}
+                                    <button
+                                        type="button"
+                                        onClick={() => setMobileShowRoom(false)}
+                                        className="md:hidden p-1.5 -ml-1 rounded-lg text-slate-600 hover:bg-slate-200 active:bg-slate-300 transition-colors cursor-pointer shrink-0"
+                                        aria-label="Kembali ke daftar percakapan"
+                                        title="Kembali"
+                                    >
+                                        <ArrowLeft className="w-5 h-5" />
+                                    </button>
+
+                                    <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-xs shrink-0">
                                         {activeThread.customerName?.slice(0, 2).toUpperCase() || 'PL'}
                                     </div>
-                                    <div>
-                                        <div className="flex items-center gap-2">
-                                            <h3 className="font-bold text-sm text-slate-900">
+                                    <div className="min-w-0">
+                                        <div className="flex items-center gap-1.5">
+                                            <h3 className="font-bold text-xs sm:text-sm text-slate-900 truncate">
                                                 {activeThread.customerName || 'Pelanggan'}
                                             </h3>
-                                            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-emerald-100 text-emerald-800">
+                                            <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-medium bg-emerald-100 text-emerald-800 shrink-0">
                                                 Online
                                             </span>
                                         </div>
-                                        <p className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-2">
-                                            <span>
-                                                {activeThread.orderType === 'inquiry' || activeThread.orderType === 'customer_chat'
-                                                    ? 'Obrolan Pra-Pesan (Tanya Menu)'
-                                                    : `Tiket Pesanan #${activeThread.id.slice(0, 8)}`}
-                                            </span>
-                                            {activeThread.tableNumber && (
-                                                <span>• Meja #{activeThread.tableNumber}</span>
-                                            )}
+                                        <p className="text-[10px] sm:text-[11px] text-slate-500 truncate mt-0.5">
+                                            {activeThread.orderType === 'inquiry' || activeThread.orderType === 'customer_chat'
+                                                ? 'Tanya Menu (Pra-Pesan)'
+                                                : `Order #${activeThread.id.slice(0, 8)}`}
+                                            {activeThread.tableNumber && ` • Meja #${activeThread.tableNumber}`}
                                         </p>
                                     </div>
                                 </div>
 
-                                <div className="text-right text-[11px] text-slate-400 font-mono">
+                                <div className="text-right text-[10px] sm:text-[11px] text-slate-400 font-mono shrink-0 pl-2">
                                     TTL 6 Jam
                                 </div>
                             </div>
 
                             {/* Chat Messages Body */}
-                            <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-slate-50/40">
+                            <div className="flex-1 p-3 sm:p-4 overflow-y-auto space-y-2.5 sm:space-y-3 bg-slate-50/40">
                                 {activeChats.length === 0 ? (
                                     <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-400">
                                         <MessageSquare className="w-8 h-8 mb-2 opacity-50" />
@@ -400,7 +429,7 @@ export default function ChatManagePage() {
                                                     {isResto ? 'Pihak Resto (Saya)' : (chat.senderName || 'Pelanggan')}
                                                 </span>
                                                 <div
-                                                    className={`max-w-[75%] rounded-2xl px-4 py-2 text-xs shadow-xs ${
+                                                    className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-3.5 py-2 text-xs shadow-2xs ${
                                                         isResto
                                                             ? 'bg-slate-900 text-white rounded-br-xs'
                                                             : 'bg-white text-slate-800 border border-slate-200 rounded-bl-xs'
@@ -431,14 +460,14 @@ export default function ChatManagePage() {
                             </div>
 
                             {/* Quick Response Chips */}
-                            <div className="px-3 py-2 bg-white border-t border-slate-100 flex gap-1.5 overflow-x-auto no-scrollbar shrink-0">
+                            <div className="px-2.5 sm:px-3 py-1.5 sm:py-2 bg-white border-t border-slate-100 flex gap-1.5 overflow-x-auto no-scrollbar shrink-0">
                                 {quickTemplates.map((tmpl, idx) => (
                                     <button
                                         key={idx}
                                         type="button"
                                         onClick={() => handleSend(tmpl)}
                                         disabled={sending}
-                                        className="text-[11px] whitespace-nowrap px-3 py-1 bg-slate-100 hover:bg-orange-50 hover:text-orange-600 text-slate-600 rounded-full font-medium transition-colors cursor-pointer shrink-0"
+                                        className="text-[10px] sm:text-[11px] whitespace-nowrap px-2.5 sm:px-3 py-1 bg-slate-100 hover:bg-orange-50 hover:text-orange-600 active:bg-orange-100 text-slate-600 rounded-full font-medium transition-colors cursor-pointer shrink-0"
                                     >
                                         {tmpl}
                                     </button>
@@ -451,7 +480,7 @@ export default function ChatManagePage() {
                                     e.preventDefault();
                                     handleSend();
                                 }}
-                                className="p-3 bg-white border-t border-slate-200 flex items-center gap-2"
+                                className="p-2.5 sm:p-3 bg-white border-t border-slate-200 flex items-center gap-2 shrink-0"
                             >
                                 <input
                                     type="text"
@@ -459,15 +488,15 @@ export default function ChatManagePage() {
                                     onChange={(e) => setInputText(e.target.value)}
                                     placeholder="Ketik balasan ke pelanggan..."
                                     disabled={sending}
-                                    className="flex-1 bg-slate-100/80 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:bg-white focus:border-orange-500 transition-all placeholder:text-slate-400"
+                                    className="flex-1 bg-slate-100/80 border border-slate-200 rounded-xl px-3 sm:px-3.5 py-2 sm:py-2.5 text-xs text-slate-800 outline-none focus:bg-white focus:border-orange-500 transition-all placeholder:text-slate-400"
                                 />
                                 <button
                                     type="submit"
                                     disabled={sending || !inputText.trim()}
-                                    className="px-4 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs flex items-center gap-1.5 transition-colors disabled:opacity-40 cursor-pointer shadow-sm"
+                                    className="px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs flex items-center gap-1.5 transition-colors disabled:opacity-40 cursor-pointer shadow-sm shrink-0"
                                 >
                                     <Send className="w-3.5 h-3.5" />
-                                    <span>Kirim</span>
+                                    <span className="hidden sm:inline">Kirim</span>
                                 </button>
                             </form>
                         </>

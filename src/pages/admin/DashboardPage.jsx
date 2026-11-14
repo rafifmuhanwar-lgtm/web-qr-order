@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { subscribeToOrders } from '../../services/orderService';
 import { ShoppingBag, DollarSign, Clock, TrendingUp, ChefHat } from 'lucide-react';
@@ -29,16 +29,23 @@ export default function DashboardPage() {
         return isNaN(d.getTime()) ? null : d;
     };
 
+    // Filter strictly for food orders (exclude customer inquiry & standalone chat threads)
+    const foodOrders = useMemo(() => {
+        return orders.filter(
+            (o) => o.orderType !== 'customer_chat' && o.orderType !== 'inquiry' && o.status !== 'inquiry'
+        );
+    }, [orders]);
+
     const today = new Date().toDateString();
-    const todayOrders = orders.filter((o) => {
+    const todayOrders = foodOrders.filter((o) => {
         const d = parseDate(o.createdAt || o.created_at);
         return d && d.toDateString() === today;
     });
     const todayRevenue = todayOrders
         .filter((o) => o.status !== 'cancelled')
         .reduce((sum, o) => sum + (o.totalPrice || 0), 0);
-    const pendingOrders = orders.filter((o) => o.status === 'pending');
-    const recentOrders = orders.slice(0, 8);
+    const pendingOrders = foodOrders.filter((o) => o.status === 'pending');
+    const recentOrders = foodOrders.slice(0, 8);
 
     const formatPrice = (price) => {
         return new Intl.NumberFormat('id-ID', {
@@ -60,7 +67,7 @@ export default function DashboardPage() {
         { label: 'Pesanan Hari Ini', value: todayOrders.length, icon: ShoppingBag, color: 'bg-blue-500', light: 'bg-blue-50' },
         { label: 'Pendapatan', value: formatPrice(todayRevenue), icon: DollarSign, color: 'bg-emerald-500', light: 'bg-emerald-50' },
         { label: 'Menunggu', value: pendingOrders.length, icon: Clock, color: 'bg-amber-500', light: 'bg-amber-50' },
-        { label: 'Total Pesanan', value: orders.length, icon: TrendingUp, color: 'bg-purple-500', light: 'bg-purple-50' },
+        { label: 'Total Pesanan', value: foodOrders.length, icon: TrendingUp, color: 'bg-purple-500', light: 'bg-purple-50' },
     ];
 
     return (

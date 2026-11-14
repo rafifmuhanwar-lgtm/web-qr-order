@@ -48,14 +48,21 @@ export default function ReportPage() {
 
     const today = useMemo(() => new Date(), []);
 
+    // Filter strictly for food orders (exclude customer inquiry & standalone chat threads)
+    const foodOrders = useMemo(() => {
+        return orders.filter(
+            (o) => o.orderType !== 'customer_chat' && o.orderType !== 'inquiry' && o.status !== 'inquiry'
+        );
+    }, [orders]);
+
     // Filter today's orders
     const todayOrders = useMemo(() => {
         const todayStr = today.toDateString();
-        return orders.filter((o) => {
+        return foodOrders.filter((o) => {
             const d = parseDate(o.createdAt || o.created_at);
             return d && d.toDateString() === todayStr;
         });
-    }, [orders, today]);
+    }, [foodOrders, today]);
 
     // Today's stats
     const todayRevenue = useMemo(() =>
@@ -92,12 +99,12 @@ export default function ReportPage() {
     const monthOrders = useMemo(() => {
         const year = calendarDate.getFullYear();
         const month = calendarDate.getMonth();
-        return orders.filter((o) => {
+        return foodOrders.filter((o) => {
             const d = parseDate(o.createdAt || o.created_at);
             if (!d) return false;
             return d.getFullYear() === year && d.getMonth() === month;
         });
-    }, [orders, calendarDate]);
+    }, [foodOrders, calendarDate]);
 
     // Group month orders by day number
     const ordersByDay = useMemo(() => {
