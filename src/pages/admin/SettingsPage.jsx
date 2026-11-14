@@ -90,21 +90,26 @@ export default function SettingsPage() {
                 feePerKm: Number(feePerKm) || 0,
                 maxDistanceKm: Number(maxDistanceKm) || 15,
                 whatsapp,
+                themeColor,
+                customColor: themeColor === 'custom' ? customColor : null,
+                welcomeMessage,
+                receiptFooter,
             };
 
             await updateStore(storeId, {
                 name: storeName,
                 address: JSON.stringify(deliveryConfig),
+                logoUrl,
                 themeColor,
                 customColor: themeColor === 'custom' ? customColor : null,
-                logoUrl,
                 welcomeMessage,
                 receiptFooter,
             });
             await refreshStore();
-            toast.success('Pengaturan berhasil disimpan');
-        } catch {
-            toast.error('Gagal menyimpan pengaturan');
+            toast.success('Pengaturan toko & lokasi berhasil disimpan! ✅');
+        } catch (err) {
+            console.error('Save settings error:', err);
+            toast.error(err.message || 'Gagal menyimpan pengaturan');
         } finally {
             setSaving(false);
         }
@@ -295,6 +300,12 @@ export default function SettingsPage() {
                         Rp {Number(feePerKm || 0).toLocaleString('id-ID')}/km
                     </span>
                     . Jangkauan antar maksimal <span className="font-semibold text-orange-600">{maxDistanceKm || 15} km</span>.
+                </div>
+
+                <div className="pt-1 flex justify-end">
+                    <Button onClick={handleSave} loading={saving} size="sm" variant="outline">
+                        <Save className="w-3.5 h-3.5" /> Simpan Lokasi & Ongkir
+                    </Button>
                 </div>
             </div>
 
