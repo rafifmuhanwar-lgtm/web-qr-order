@@ -12,6 +12,7 @@ import {
 import { getStore } from '../../services/storeService';
 import { supabase } from '../../config/supabase';
 import { sendOrderChatMessage, broadcastOrderChange } from '../../services/orderService';
+import { isChatExpired } from '../../services/chatService';
 import toast from 'react-hot-toast';
 
 export default function CustomerFloatingChat() {
@@ -112,19 +113,35 @@ export default function CustomerFloatingChat() {
         return () => clearInterval(interval);
     }, [location.pathname]);
 
-    // 5. Parse Chats from Order Notes JSON
+    // 5. Parse Chats from Order Notes JSON (Auto-filter > 6 hours old)
     const chats = useMemo(() => {
         if (!order?.notes) return [];
         if (typeof order.notes === 'string' && order.notes.startsWith('{')) {
             try {
                 const parsed = JSON.parse(order.notes);
-                return Array.isArray(parsed.chats) ? parsed.chats : [];
+                return Array.isArray(parsed.chats)
+                    ? parsed.chats.filter((c) => !isChatExpired(c.timestamp))
+                    : [];
             } catch {
                 return [];
             }
         }
         return [];
     }, [order?.notes]);
+
+    // Auto reset expired standalone chat sessions (> 6 hours)
+    useEffect(() => {
+        if (order && (order.orderType === 'inquiry' || order.orderType === 'customer_chat')) {
+            const ageMs = Date.now() - new Date(order.createdAt).getTime();
+            if (ageMs > 6 * 60 * 60 * 1000) {
+                if (paramStoreId) {
+                    sessionStorage.removeItem(`emakan_active_order_${paramStoreId}`);
+                }
+                setActiveOrderId(null);
+                setOrder(null);
+            }
+        }
+    }, [order, paramStoreId]);
 
     // Scroll to latest message
     useEffect(() => {
@@ -149,7 +166,7 @@ export default function CustomerFloatingChat() {
             if (!targetId) {
                 const initialPayload = {
                     storeId: paramStoreId,
-                    orderType: 'inquiry',
+                    orderType: 'customer_chat',
                     status: 'inquiry',
                     paymentStatus: 'unpaid',
                     paymentMethod: 'qris',

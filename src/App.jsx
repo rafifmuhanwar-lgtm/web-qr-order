@@ -20,6 +20,7 @@ import CategoryPage from './pages/admin/CategoryPage';
 import TablePage from './pages/admin/TablePage';
 import OnlineQrPage from './pages/admin/OnlineQrPage';
 import OrderPage from './pages/admin/OrderPage';
+import ChatManagePage from './pages/admin/ChatManagePage';
 import ReportPage from './pages/admin/ReportPage';
 import SettingsPage from './pages/admin/SettingsPage';
 import LandingPage from './pages/LandingPage';
@@ -65,6 +66,7 @@ function AppRoutes() {
         <Route path="tables" element={<TablePage />} />
         <Route path="online-qr" element={<OnlineQrPage />} />
         <Route path="orders" element={<OrderPage />} />
+        <Route path="chats" element={<ChatManagePage />} />
         <Route path="reports" element={<ReportPage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>

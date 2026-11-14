@@ -36,7 +36,6 @@ const tabs = [
     { key: 'processing', label: 'Sedang Dimasak' },
     { key: 'in_transit', label: 'Diantar / Siap' },
     { key: 'completed', label: 'Selesai' },
-    { key: 'inquiry', label: '💬 Obrolan Pelanggan' },
 ];
 
 export default function OrderPage() {
@@ -71,16 +70,17 @@ export default function OrderPage() {
         return unsubscribe;
     }, [storeId]);
 
+    const foodOrders = useMemo(() => {
+        return orders.filter((o) => o.orderType !== 'customer_chat' && o.orderType !== 'inquiry');
+    }, [orders]);
+
     const filteredOrders = useMemo(() => {
-        if (activeTab === 'all') return orders;
+        if (activeTab === 'all') return foodOrders;
         if (activeTab === 'in_transit') {
-            return orders.filter((o) => o.status === 'on_delivery' || o.status === 'ready');
+            return foodOrders.filter((o) => o.status === 'on_delivery' || o.status === 'ready');
         }
-        if (activeTab === 'inquiry') {
-            return orders.filter((o) => o.orderType === 'inquiry' || (o.notes && o.notes.includes('"chats":[')));
-        }
-        return orders.filter((o) => o.status === activeTab && o.orderType !== 'inquiry');
-    }, [orders, activeTab]);
+        return foodOrders.filter((o) => o.status === activeTab);
+    }, [foodOrders, activeTab]);
 
     const getNextStatusAction = (order) => {
         const status = order.status;
@@ -262,12 +262,10 @@ export default function OrderPage() {
             <div className="flex gap-2 overflow-x-auto pb-1">
                 {tabs.map((tab) => {
                     const count = tab.key === 'all'
-                        ? orders.length
+                        ? foodOrders.length
                         : tab.key === 'in_transit'
-                            ? orders.filter((o) => o.status === 'on_delivery' || o.status === 'ready').length
-                            : tab.key === 'inquiry'
-                                ? orders.filter((o) => o.orderType === 'inquiry' || (o.notes && o.notes.includes('"chats":['))).length
-                                : orders.filter((o) => o.status === tab.key && o.orderType !== 'inquiry').length;
+                            ? foodOrders.filter((o) => o.status === 'on_delivery' || o.status === 'ready').length
+                            : foodOrders.filter((o) => o.status === tab.key).length;
                     const isActive = activeTab === tab.key;
 
                     return (
@@ -384,22 +382,8 @@ export default function OrderPage() {
                                         </div>
                                     )}
 
-                                    {/* Items List or Inquiry Preview */}
-                                    {order.orderType === 'inquiry' ? (
-                                        <div className="p-3 bg-orange-50/70 rounded-xl border border-orange-200 space-y-1.5">
-                                            <div className="flex items-center gap-1.5 text-xs font-bold text-orange-800">
-                                                <MessageSquare className="w-3.5 h-3.5 text-orange-600" />
-                                                <span>Tanya Menu Langsung</span>
-                                            </div>
-                                            {delivery.chats && delivery.chats.length > 0 ? (
-                                                <p className="text-xs text-slate-700 italic line-clamp-2">
-                                                    "{delivery.chats[delivery.chats.length - 1].text}"
-                                                </p>
-                                            ) : (
-                                                <p className="text-xs text-slate-400 italic">Mulai percakapan dengan pelanggan...</p>
-                                            )}
-                                        </div>
-                                    ) : hasItems ? (
+                                    {/* Items List */}
+                                    {hasItems ? (
                                         <div className="space-y-1.5 text-xs text-slate-700">
                                             {order.items.slice(0, 4).map((item, idx) => (
                                                 <div key={idx} className="flex justify-between py-0.5">
@@ -448,31 +432,19 @@ export default function OrderPage() {
                                     </div>
 
                                     <div className="flex items-center gap-2">
-                                        {order.orderType === 'inquiry' ? (
+                                        <button
+                                            onClick={() => setDetailOrder(order)}
+                                            className="px-2.5 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                                        >
+                                            Detail
+                                        </button>
+                                        {action && (
                                             <button
-                                                onClick={() => setDetailOrder(order)}
-                                                className="px-3 py-1.5 text-xs font-bold text-white bg-orange-500 hover:bg-orange-600 rounded-lg shadow-xs transition-colors flex items-center gap-1 cursor-pointer"
+                                                onClick={() => handleUpdateStatus(order)}
+                                                className={`px-3 py-1.5 text-xs font-bold text-white rounded-lg shadow-xs transition-colors flex items-center gap-1 cursor-pointer ${action.color}`}
                                             >
-                                                <MessageSquare className="w-3.5 h-3.5" />
-                                                <span>Balas Chat</span>
+                                                <span>{action.label}</span>
                                             </button>
-                                        ) : (
-                                            <>
-                                                <button
-                                                    onClick={() => setDetailOrder(order)}
-                                                    className="px-2.5 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
-                                                >
-                                                    Detail
-                                                </button>
-                                                {action && (
-                                                    <button
-                                                        onClick={() => handleUpdateStatus(order)}
-                                                        className={`px-3 py-1.5 text-xs font-bold text-white rounded-lg shadow-xs transition-colors flex items-center gap-1 cursor-pointer ${action.color}`}
-                                                    >
-                                                        <span>{action.label}</span>
-                                                    </button>
-                                                )}
-                                            </>
                                         )}
                                     </div>
                                 </div>

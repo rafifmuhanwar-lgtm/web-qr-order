@@ -16,6 +16,7 @@ import {
     ChefHat,
     Settings,
     Shield,
+    MessageSquare,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -26,6 +27,7 @@ const navItems = [
     { to: '/admin/tables', icon: Store, label: 'Meja' },
     { to: '/admin/online-qr', icon: QrCode, label: 'QR Pesan Online' },
     { to: '/admin/orders', icon: ClipboardList, label: 'Pesanan' },
+    { to: '/admin/chats', icon: MessageSquare, label: 'Live Chat' },
     { to: '/admin/reports', icon: BarChart3, label: 'Laporan' },
     { to: '/admin/settings', icon: Settings, label: 'Pengaturan' },
 ];
