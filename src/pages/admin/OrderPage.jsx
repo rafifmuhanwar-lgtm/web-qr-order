@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { subscribeToOrders, updateOrderStatus, updateOrderPayment } from '../../services/orderService';
 import { downloadReceiptPNG } from '../../utils/receiptGenerator';
@@ -82,19 +82,19 @@ export default function OrderPage() {
         const type = order.orderType;
 
         if (status === 'pending') {
-            return { next: 'processing', label: 'Mulai Masak 👨‍🍳', color: 'bg-blue-600 hover:bg-blue-700' };
+            return { next: 'processing', label: 'Mulai Masak', color: 'bg-blue-600 hover:bg-blue-700' };
         }
         if (status === 'processing') {
             if (type === 'delivery') {
-                return { next: 'on_delivery', label: 'Kirim Kurir 🛵', color: 'bg-orange-500 hover:bg-orange-600' };
+                return { next: 'on_delivery', label: 'Kirim Kurir', color: 'bg-orange-500 hover:bg-orange-600' };
             }
             if (type === 'take_away') {
-                return { next: 'ready', label: 'Siap Diambil 🛍️', color: 'bg-indigo-600 hover:bg-indigo-700' };
+                return { next: 'ready', label: 'Siap Diambil', color: 'bg-indigo-600 hover:bg-indigo-700' };
             }
-            return { next: 'completed', label: 'Selesaikan Pesanan ✅', color: 'bg-emerald-600 hover:bg-emerald-700' };
+            return { next: 'completed', label: 'Selesaikan Pesanan', color: 'bg-emerald-600 hover:bg-emerald-700' };
         }
         if (status === 'on_delivery' || status === 'ready') {
-            return { next: 'completed', label: 'Selesai & Diterima ✅', color: 'bg-emerald-600 hover:bg-emerald-700' };
+            return { next: 'completed', label: 'Selesai & Diterima', color: 'bg-emerald-600 hover:bg-emerald-700' };
         }
         return null;
     };
@@ -225,203 +225,207 @@ export default function OrderPage() {
         return [...suggestions].sort((a, b) => a - b).slice(0, 5);
     }, [cashModal]);
 
-    const prevPendingCount = useRef(null);
     const [manualRefreshing, setManualRefreshing] = useState(false);
-
-    useEffect(() => {
-        if (prevPendingCount.current !== null && pendingCount > prevPendingCount.current) {
-            toast('🔔 Pesanan baru masuk!', {
-                icon: '🛵',
-                style: {
-                    borderRadius: '16px',
-                    background: '#ea580c',
-                    color: '#fff',
-                    fontWeight: 'bold',
-                },
-                duration: 4000,
-            });
-        }
-        prevPendingCount.current = pendingCount;
-    }, [pendingCount]);
 
     if (loading) return <Spinner />;
 
     return (
-        <div className="animate-fade-in space-y-6">
-            <div className="flex items-center justify-between">
+        <div className="space-y-5">
+            {/* Clean Header */}
+            <div className="flex items-center justify-between pb-2 border-b border-slate-200/70">
                 <div>
-                    <div className="flex items-center gap-3">
-                        <h1 className="text-2xl font-bold text-secondary">Pesanan</h1>
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                            Live Sync
-                        </span>
-                    </div>
-                    <p className="text-slate-500 text-sm mt-0.5">
-                        {pendingCount > 0 ? `${pendingCount} pesanan menunggu konfirmasi` : 'Semua pesanan terproses'}
+                    <h1 className="text-xl font-bold text-slate-900 tracking-tight">Pesanan</h1>
+                    <p className="text-xs text-slate-500">
+                        {pendingCount > 0 ? `${pendingCount} pesanan menunggu proses` : 'Semua pesanan terproses'}
                     </p>
                 </div>
 
-                <div className="flex items-center gap-3">
-                    <button
-                        onClick={() => {
-                            setManualRefreshing(true);
-                            setTimeout(() => {
-                                setManualRefreshing(false);
-                                toast.success('Data pesanan diperbarui');
-                            }, 500);
-                        }}
-                        className="flex items-center gap-1.5 px-3 py-2 bg-white border border-border hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-semibold shadow-xs transition-colors cursor-pointer"
-                        title="Segarkan data pesanan"
-                    >
-                        <RefreshCw className={`w-3.5 h-3.5 ${manualRefreshing ? 'animate-spin text-primary' : ''}`} />
-                        <span className="hidden sm:inline">Segarkan</span>
-                    </button>
-
-                    {pendingCount > 0 && (
-                        <div className="relative">
-                            <div className="w-3 h-3 bg-red-500 rounded-full animate-ping absolute -top-1 -right-1" />
-                            <div className="px-3 py-1.5 bg-red-500 text-white text-xs font-bold rounded-full">{pendingCount}</div>
-                        </div>
-                    )}
-                </div>
+                <button
+                    onClick={() => {
+                        setManualRefreshing(true);
+                        setTimeout(() => setManualRefreshing(false), 500);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-lg text-xs font-medium transition-colors cursor-pointer"
+                    title="Segarkan data pesanan"
+                >
+                    <RefreshCw className={`w-3.5 h-3.5 ${manualRefreshing ? 'animate-spin text-slate-900' : ''}`} />
+                    <span>Perbarui</span>
+                </button>
             </div>
 
-            {/* Status Tabs */}
-            <div className="flex gap-2 overflow-x-auto pb-2">
+            {/* Clean Status Filter Tabs */}
+            <div className="flex gap-2 overflow-x-auto pb-1">
                 {tabs.map((tab) => {
-                    const count = tab.key === 'all' ? orders.length : orders.filter((o) => o.status === tab.key).length;
+                    const count = tab.key === 'all'
+                        ? orders.length
+                        : tab.key === 'in_transit'
+                            ? orders.filter((o) => o.status === 'on_delivery' || o.status === 'ready').length
+                            : orders.filter((o) => o.status === tab.key).length;
+                    const isActive = activeTab === tab.key;
+
                     return (
                         <button
                             key={tab.key}
                             onClick={() => setActiveTab(tab.key)}
-                            className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all cursor-pointer
-                ${activeTab === tab.key
-                                    ? 'bg-primary text-white shadow-lg shadow-primary/20'
-                                    : 'bg-white text-slate-600 border border-border hover:border-primary/30'
-                                }`}
+                            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer flex items-center gap-2 ${
+                                isActive
+                                    ? 'bg-slate-900 text-white shadow-xs'
+                                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                            }`}
                         >
-                            {tab.label} ({count})
+                            <span>{tab.label}</span>
+                            <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                                isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+                            }`}>
+                                {count}
+                            </span>
                         </button>
                     );
                 })}
             </div>
 
-            {/* Orders List */}
+            {/* Orders Cards Grid */}
             {filteredOrders.length === 0 ? (
-                <EmptyState icon={ClipboardList} title="Tidak ada pesanan" description={`Belum ada pesanan ${activeTab !== 'all' ? `dengan status ${activeTab}` : ''}`} />
+                <EmptyState
+                    icon={ClipboardList}
+                    title="Tidak ada pesanan"
+                    description={`Belum ada pesanan ${activeTab !== 'all' ? `dengan status ${activeTab}` : ''}`}
+                />
             ) : (
-                <div className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                     {filteredOrders.map((order) => {
                         const delivery = parseOrderDelivery(order);
                         const action = getNextStatusAction(order);
+                        const hasItems = Array.isArray(order.items) && order.items.length > 0;
 
                         return (
-                            <div key={order.id} onClick={() => setDetailOrder(order)} className="bg-white rounded-2xl border border-border p-4 shadow-sm hover:shadow-md transition-shadow animate-fade-in cursor-pointer">
-                                <div className="flex items-start justify-between mb-3">
-                                    <div className="flex items-center gap-3">
-                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center
-                                            ${order.status === 'pending' ? 'bg-amber-100' : order.status === 'processing' ? 'bg-blue-100' : order.status === 'on_delivery' ? 'bg-orange-100' : 'bg-emerald-100'}`}
-                                        >
-                                            {order.status === 'pending' ? <Clock className="w-5 h-5 text-amber-600" /> :
-                                                order.status === 'processing' ? <ChefHat className="w-5 h-5 text-blue-600" /> :
-                                                    order.status === 'on_delivery' ? <Bike className="w-5 h-5 text-orange-600" /> :
-                                                        <CheckCircle2 className="w-5 h-5 text-emerald-600" />}
+                            <div
+                                key={order.id}
+                                className="bg-white rounded-xl border border-slate-200/90 hover:border-slate-300 shadow-xs hover:shadow-sm transition-all flex flex-col justify-between overflow-hidden"
+                            >
+                                {/* Ticket Header */}
+                                <div className="p-4 pb-3 border-b border-slate-100 flex items-start justify-between gap-2">
+                                    <div>
+                                        <div className="flex items-center gap-2">
+                                            <h3 className="font-bold text-slate-900 text-base">
+                                                {order.tableNumber ? `Meja #${order.tableNumber}` : (order.customerName || 'Online')}
+                                            </h3>
+                                            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md ${
+                                                order.orderType === 'delivery'
+                                                    ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                                                    : order.orderType === 'take_away' && !order.tableNumber
+                                                        ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                                                        : 'bg-slate-100 text-slate-600 border border-slate-200'
+                                            }`}>
+                                                {order.orderType === 'delivery' ? '🛵 Delivery' : order.orderType === 'take_away' ? '🛍️ Take Away' : '🍽️ Dine In'}
+                                            </span>
                                         </div>
-                                        <div>
-                                            <div className="flex items-center gap-2">
-                                                <h3 className="font-bold text-secondary">
-                                                    {order.tableNumber ? `Meja #${order.tableNumber}` : (order.customerName || 'Online')}
-                                                </h3>
-                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                                                    order.orderType === 'delivery'
-                                                        ? 'bg-purple-100 text-purple-700 border border-purple-200'
-                                                        : order.orderType === 'take_away' && !order.tableNumber
-                                                            ? 'bg-blue-100 text-blue-700 border border-blue-200'
-                                                            : 'bg-slate-100 text-slate-600'
-                                                }`}>
-                                                    {order.orderType === 'delivery' ? '🛵 Delivery' : order.orderType === 'take_away' ? '🛍️ Take Away' : '🍽️ Dine In'}
-                                                </span>
-                                            </div>
-                                            <p className="text-xs text-slate-400">{formatTime(order.createdAt)}</p>
-                                        </div>
+                                        <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1.5 font-mono">
+                                            <span>#{order.id.slice(0, 6)}</span>
+                                            <span>•</span>
+                                            <span className="font-sans">{formatTime(order.createdAt)}</span>
+                                        </p>
                                     </div>
                                     <Badge status={order.status} />
                                 </div>
 
-                                {/* Delivery Address & Maps Quick Link */}
-                                {order.orderType === 'delivery' && (delivery.address || order.deliveryAddress) && (
-                                    <div className="mb-3 bg-purple-50/60 border border-purple-100 rounded-xl p-2.5 text-xs text-purple-900 flex items-start justify-between gap-2">
-                                        <div className="flex-1">
-                                            <p className="font-semibold flex items-center gap-1">
-                                                <MapPin className="w-3.5 h-3.5 text-purple-600 flex-shrink-0" />
-                                                <span className="truncate">{delivery.address || order.deliveryAddress}</span>
-                                            </p>
+                                {/* Ticket Body */}
+                                <div className="p-4 flex-1 space-y-3">
+                                    {/* Delivery Address & Maps Link */}
+                                    {order.orderType === 'delivery' && (delivery.address || order.deliveryAddress) && (
+                                        <div className="bg-purple-50/70 border border-purple-100 rounded-lg p-2.5 text-xs text-purple-900">
+                                            <div className="flex items-start justify-between gap-1.5">
+                                                <p className="font-medium flex items-center gap-1 truncate">
+                                                    <MapPin className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                                                    <span className="truncate">{delivery.address || order.deliveryAddress}</span>
+                                                </p>
+                                                {delivery.lat && delivery.lng && (
+                                                    <a
+                                                        href={buildGoogleMapsRouteUrl(delivery.lat, delivery.lng)}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        className="px-2 py-0.5 bg-white text-purple-700 font-bold text-[10px] rounded border border-purple-200 shrink-0 hover:bg-purple-100 transition-colors flex items-center gap-1"
+                                                    >
+                                                        <Navigation className="w-2.5 h-2.5" />
+                                                        Maps
+                                                    </a>
+                                                )}
+                                            </div>
                                             {delivery.distanceKm > 0 && (
-                                                <p className="text-[10px] text-purple-700 pl-4.5 mt-0.5">
-                                                    Jarak: {delivery.distanceKm} km · Ongkir: {delivery.shippingFee > 0 ? formatPrice(delivery.shippingFee) : 'Gratis'}
+                                                <p className="text-[10px] text-purple-600 pl-4 mt-0.5">
+                                                    {delivery.distanceKm} km · Ongkir: {delivery.shippingFee > 0 ? formatPrice(delivery.shippingFee) : 'Gratis'}
                                                     {delivery.courierTip > 0 && ` · Tip: ${formatPrice(delivery.courierTip)}`}
                                                 </p>
                                             )}
                                         </div>
-                                        {delivery.lat && delivery.lng && (
-                                            <a
-                                                href={buildGoogleMapsRouteUrl(delivery.lat, delivery.lng)}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                onClick={(e) => e.stopPropagation()}
-                                                className="px-2.5 py-1 bg-white hover:bg-purple-100 text-purple-700 font-bold text-[11px] rounded-lg border border-purple-200 shadow-xs flex items-center gap-1 flex-shrink-0 transition-colors"
-                                            >
-                                                <Navigation className="w-3 h-3 text-purple-600" />
-                                                <span>Peta</span>
-                                            </a>
-                                        )}
-                                    </div>
-                                )}
+                                    )}
 
-                                {/* Items */}
-                                <div className="space-y-1.5 mb-3 bg-slate-50 rounded-xl p-3">
-                                    {order.items?.map((item, idx) => (
-                                        <div key={idx} className="flex justify-between text-sm">
-                                            <span className="text-slate-600">
-                                                {item.name} × {item.quantity}
-                                                {item.notes && <span className="text-amber-600 ml-1 text-xs">({item.notes})</span>}
-                                            </span>
-                                            <span className="font-medium text-slate-700">{formatPrice(item.price * item.quantity)}</span>
+                                    {/* Items List */}
+                                    {hasItems ? (
+                                        <div className="space-y-1.5 text-xs text-slate-700">
+                                            {order.items.slice(0, 4).map((item, idx) => (
+                                                <div key={idx} className="flex justify-between py-0.5">
+                                                    <span className="truncate pr-2">
+                                                        <span className="font-bold text-slate-900">{item.quantity}x</span> {item.name}
+                                                        {item.notes && <span className="text-amber-600 text-[11px] block">"{item.notes}"</span>}
+                                                    </span>
+                                                    <span className="font-medium text-slate-600 shrink-0">
+                                                        {formatPrice(item.price * item.quantity)}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                            {order.items.length > 4 && (
+                                                <p className="text-[11px] text-slate-400 italic pt-0.5">
+                                                    +{order.items.length - 4} menu lainnya...
+                                                </p>
+                                            )}
                                         </div>
-                                    ))}
+                                    ) : (
+                                        <p className="text-xs text-slate-400 italic py-1">Tidak ada rincian item terlampir</p>
+                                    )}
+
                                     {delivery.userNotes && (
-                                        <p className="text-xs text-slate-500 pt-1 border-t border-border mt-1">📝 {delivery.userNotes}</p>
+                                        <p className="text-[11px] text-slate-500 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                                            📝 {delivery.userNotes}
+                                        </p>
                                     )}
                                 </div>
 
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                        <span className="font-bold text-primary text-lg">{formatPrice(order.totalPrice)}</span>
-                                        {order.paymentMethod && (
-                                            <span className={`px-2 py-0.5 rounded-md text-xs font-medium
-                                                ${order.paymentMethod === 'qris'
-                                                    ? 'bg-purple-100 text-purple-700'
-                                                    : 'bg-emerald-100 text-emerald-700'
-                                                }`}>
-                                                {order.paymentMethod === 'qris' ? '📱 QRIS' : '💵 Kasir'}
+                                {/* Ticket Footer */}
+                                <div className="p-3.5 bg-slate-50/80 border-t border-slate-100 flex items-center justify-between gap-2">
+                                    <div>
+                                        <span className="text-[10px] text-slate-400 font-semibold block uppercase">Total Tagihan</span>
+                                        <span className="font-bold text-slate-900 text-sm">
+                                            {formatPrice(order.totalPrice)}
+                                        </span>
+                                        <div className="flex items-center gap-1.5 mt-0.5">
+                                            <span className="text-[10px] text-slate-500">
+                                                {order.paymentMethod === 'qris' ? 'QRIS' : 'Tunai'}
                                             </span>
-                                        )}
-                                        {order.amountPaid && (
-                                            <span className="px-2 py-0.5 rounded-md text-xs font-medium bg-green-100 text-green-700">
-                                                ✅ Lunas
+                                            <span className="text-[10px] text-slate-300">•</span>
+                                            <span className={`text-[10px] font-bold ${order.paymentStatus === 'paid' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                                                {order.paymentStatus === 'paid' ? 'Lunas' : 'Belum Bayar'}
                                             </span>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => setDetailOrder(order)}
+                                            className="px-2.5 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                                        >
+                                            Detail
+                                        </button>
+                                        {action && (
+                                            <button
+                                                onClick={() => handleUpdateStatus(order)}
+                                                className={`px-3 py-1.5 text-xs font-bold text-white rounded-lg shadow-xs transition-colors flex items-center gap-1 cursor-pointer ${action.color}`}
+                                            >
+                                                <span>{action.label}</span>
+                                            </button>
                                         )}
                                     </div>
-                                    {action && (
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); handleUpdateStatus(order); }}
-                                            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white shadow-sm transition-all cursor-pointer ${action.color}`}
-                                        >
-                                            <span>{action.label}</span>
-                                            <ArrowRight className="w-3.5 h-3.5" />
-                                        </button>
-                                    )}
                                 </div>
                             </div>
                         );
