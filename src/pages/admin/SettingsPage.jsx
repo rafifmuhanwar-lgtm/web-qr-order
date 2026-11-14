@@ -218,10 +218,29 @@ export default function SettingsPage() {
                         onLocationSelect={({ lat, lng, address: addr }) => {
                             setStoreLat(lat);
                             setStoreLng(lng);
-                            if (!address && addr) setAddress(addr);
+                            if (addr) setAddress(addr);
                         }}
-                        height="220px"
+                        height="240px"
                     />
+
+                    {/* Live Selected Address Feedback Box */}
+                    <div className="mt-2.5 p-3.5 bg-slate-50 border border-slate-200/90 rounded-xl flex items-start justify-between gap-3 text-xs">
+                        <div className="flex-1 space-y-0.5">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                                Alamat & Titik Resto Terpilih:
+                            </span>
+                            <p className="font-semibold text-slate-800 leading-snug">
+                                {address || 'Geser pin atau klik "Lokasi Saya" untuk mendeteksi alamat'}
+                            </p>
+                            <p className="text-[11px] text-slate-500 font-mono pt-0.5">
+                                Koordinat: {storeLat.toFixed(5)}, {storeLng.toFixed(5)}
+                            </p>
+                        </div>
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700 shrink-0">
+                            ✓ Siap Disimpan
+                        </span>
+                    </div>
+
                     <p className="text-xs text-slate-400 mt-1">
                         Geser pin atau klik &apos;Lokasi Saya&apos; agar sistem mengetahui titik awal pengantaran resto.
                     </p>
