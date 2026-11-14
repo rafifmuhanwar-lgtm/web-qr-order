@@ -117,6 +117,7 @@ export function parseOrderDelivery(order) {
         shippingFee: order.shippingFee || delivery.shippingFee || 0,
         courierTip: order.courierTip || delivery.courierTip || 0,
         userNotes: delivery.userNotes || delivery.notes || '',
+        chats: Array.isArray(delivery.chats) ? delivery.chats : [],
     };
 }
 

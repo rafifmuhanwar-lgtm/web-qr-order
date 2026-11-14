@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { subscribeToOrders, updateOrderStatus, updateOrderPayment } from '../../services/orderService';
 import { downloadReceiptPNG } from '../../utils/receiptGenerator';
-import { parseOrderDelivery, buildGoogleMapsRouteUrl, buildWhatsAppChatUrl } from '../../utils/deliveryUtils';
+import { parseOrderDelivery, buildGoogleMapsRouteUrl } from '../../utils/deliveryUtils';
 import {
     ClipboardList,
     Clock,
@@ -19,6 +19,7 @@ import {
     Navigation,
     Phone,
     MessageCircle,
+    MessageSquare,
     HeartHandshake,
     RefreshCw
 } from 'lucide-react';
@@ -35,6 +36,7 @@ const tabs = [
     { key: 'processing', label: 'Sedang Dimasak' },
     { key: 'in_transit', label: 'Diantar / Siap' },
     { key: 'completed', label: 'Selesai' },
+    { key: 'inquiry', label: '💬 Obrolan Pelanggan' },
 ];
 
 export default function OrderPage() {
@@ -74,7 +76,10 @@ export default function OrderPage() {
         if (activeTab === 'in_transit') {
             return orders.filter((o) => o.status === 'on_delivery' || o.status === 'ready');
         }
-        return orders.filter((o) => o.status === activeTab);
+        if (activeTab === 'inquiry') {
+            return orders.filter((o) => o.orderType === 'inquiry' || (o.notes && o.notes.includes('"chats":[')));
+        }
+        return orders.filter((o) => o.status === activeTab && o.orderType !== 'inquiry');
     }, [orders, activeTab]);
 
     const getNextStatusAction = (order) => {
@@ -260,7 +265,9 @@ export default function OrderPage() {
                         ? orders.length
                         : tab.key === 'in_transit'
                             ? orders.filter((o) => o.status === 'on_delivery' || o.status === 'ready').length
-                            : orders.filter((o) => o.status === tab.key).length;
+                            : tab.key === 'inquiry'
+                                ? orders.filter((o) => o.orderType === 'inquiry' || (o.notes && o.notes.includes('"chats":['))).length
+                                : orders.filter((o) => o.status === tab.key && o.orderType !== 'inquiry').length;
                     const isActive = activeTab === tab.key;
 
                     return (
@@ -326,7 +333,23 @@ export default function OrderPage() {
                                             <span className="font-sans">{formatTime(order.createdAt)}</span>
                                         </p>
                                     </div>
-                                    <Badge status={order.status} />
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                        {delivery.chats && delivery.chats.length > 0 && (
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setDetailOrder(order);
+                                                }}
+                                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-50 text-orange-600 border border-orange-200 hover:bg-orange-100 transition-colors cursor-pointer"
+                                                title="Klik untuk membuka obrolan langsung"
+                                            >
+                                                <MessageSquare className="w-3 h-3 text-orange-500" />
+                                                <span>{delivery.chats.length} Pesan</span>
+                                            </button>
+                                        )}
+                                        <Badge status={order.status} />
+                                    </div>
                                 </div>
 
                                 {/* Ticket Body */}
@@ -361,8 +384,22 @@ export default function OrderPage() {
                                         </div>
                                     )}
 
-                                    {/* Items List */}
-                                    {hasItems ? (
+                                    {/* Items List or Inquiry Preview */}
+                                    {order.orderType === 'inquiry' ? (
+                                        <div className="p-3 bg-orange-50/70 rounded-xl border border-orange-200 space-y-1.5">
+                                            <div className="flex items-center gap-1.5 text-xs font-bold text-orange-800">
+                                                <MessageSquare className="w-3.5 h-3.5 text-orange-600" />
+                                                <span>Tanya Menu Langsung</span>
+                                            </div>
+                                            {delivery.chats && delivery.chats.length > 0 ? (
+                                                <p className="text-xs text-slate-700 italic line-clamp-2">
+                                                    "{delivery.chats[delivery.chats.length - 1].text}"
+                                                </p>
+                                            ) : (
+                                                <p className="text-xs text-slate-400 italic">Mulai percakapan dengan pelanggan...</p>
+                                            )}
+                                        </div>
+                                    ) : hasItems ? (
                                         <div className="space-y-1.5 text-xs text-slate-700">
                                             {order.items.slice(0, 4).map((item, idx) => (
                                                 <div key={idx} className="flex justify-between py-0.5">
@@ -411,19 +448,31 @@ export default function OrderPage() {
                                     </div>
 
                                     <div className="flex items-center gap-2">
-                                        <button
-                                            onClick={() => setDetailOrder(order)}
-                                            className="px-2.5 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
-                                        >
-                                            Detail
-                                        </button>
-                                        {action && (
+                                        {order.orderType === 'inquiry' ? (
                                             <button
-                                                onClick={() => handleUpdateStatus(order)}
-                                                className={`px-3 py-1.5 text-xs font-bold text-white rounded-lg shadow-xs transition-colors flex items-center gap-1 cursor-pointer ${action.color}`}
+                                                onClick={() => setDetailOrder(order)}
+                                                className="px-3 py-1.5 text-xs font-bold text-white bg-orange-500 hover:bg-orange-600 rounded-lg shadow-xs transition-colors flex items-center gap-1 cursor-pointer"
                                             >
-                                                <span>{action.label}</span>
+                                                <MessageSquare className="w-3.5 h-3.5" />
+                                                <span>Balas Chat</span>
                                             </button>
+                                        ) : (
+                                            <>
+                                                <button
+                                                    onClick={() => setDetailOrder(order)}
+                                                    className="px-2.5 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                                                >
+                                                    Detail
+                                                </button>
+                                                {action && (
+                                                    <button
+                                                        onClick={() => handleUpdateStatus(order)}
+                                                        className={`px-3 py-1.5 text-xs font-bold text-white rounded-lg shadow-xs transition-colors flex items-center gap-1 cursor-pointer ${action.color}`}
+                                                    >
+                                                        <span>{action.label}</span>
+                                                    </button>
+                                                )}
+                                            </>
                                         )}
                                     </div>
                                 </div>
@@ -542,12 +591,10 @@ export default function OrderPage() {
                                             )}
                                             {(delivery.phone || detailOrder.customerPhone) && (
                                                 <div className="flex justify-between items-center text-sm">
-                                                    <span className="text-slate-500">WhatsApp Pelanggan</span>
+                                                    <span className="text-slate-500">No. Telepon Pelanggan</span>
                                                     <a
-                                                        href={buildWhatsAppChatUrl(delivery.phone || detailOrder.customerPhone, `Halo ${detailOrder.customerName || 'kak'}, mengenai pesanan Anda #${detailOrder.id.slice(0, 8)} di ${storeData?.name || 'eMakan'}...`)}
-                                                        target="_blank"
-                                                        rel="noreferrer"
-                                                        className="font-bold text-emerald-600 hover:underline flex items-center gap-1"
+                                                        href={`tel:${delivery.phone || detailOrder.customerPhone}`}
+                                                        className="font-bold text-slate-700 hover:text-slate-900 flex items-center gap-1"
                                                     >
                                                         <Phone className="w-3.5 h-3.5" />
                                                         <span>{delivery.phone || detailOrder.customerPhone}</span>

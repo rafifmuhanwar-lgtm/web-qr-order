@@ -21,11 +21,6 @@ export default function OrderChatBox({
     variant = 'floating', // 'floating' | 'collapsible' | 'inline'
     onMessageSent,
 }) {
-    const [isOpen, setIsOpen] = useState(false);
-    const [input, setInput] = useState('');
-    const [sending, setSending] = useState(false);
-    const messagesEndRef = useRef(null);
-
     let parsed = {};
     try {
         parsed =
@@ -37,6 +32,10 @@ export default function OrderChatBox({
     }
 
     const chats = Array.isArray(parsed.chats) ? parsed.chats : [];
+    const [isOpen, setIsOpen] = useState(() => chats.length > 0 || variant === 'inline');
+    const [input, setInput] = useState('');
+    const [sending, setSending] = useState(false);
+    const messagesEndRef = useRef(null);
 
     useEffect(() => {
         if (isOpen || variant === 'inline') {
