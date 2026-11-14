@@ -207,13 +207,21 @@ export const updateOrderStatus = async (orderId, status) => {
 };
 
 export const sendOrderChatMessage = async (orderId, currentNotes, message) => {
+    // 1. Fetch latest notes from DB to guarantee real-time consistency
+    const { data: latestOrder } = await supabase
+        .from(COLLECTION)
+        .select('notes')
+        .eq('id', orderId)
+        .single();
+
+    const notesSource = latestOrder?.notes || currentNotes;
     let parsedNotes = {};
     try {
-        parsedNotes = typeof currentNotes === 'string' && currentNotes.startsWith('{')
-            ? JSON.parse(currentNotes)
-            : { userNotes: currentNotes || '' };
+        parsedNotes = typeof notesSource === 'string' && notesSource.startsWith('{')
+            ? JSON.parse(notesSource)
+            : { userNotes: notesSource || '' };
     } catch {
-        parsedNotes = { userNotes: currentNotes || '' };
+        parsedNotes = { userNotes: notesSource || '' };
     }
 
     const chats = Array.isArray(parsedNotes.chats) ? parsedNotes.chats : [];

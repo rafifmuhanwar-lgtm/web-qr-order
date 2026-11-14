@@ -152,6 +152,8 @@ export default function CustomerFloatingChat() {
                     orderType: 'inquiry',
                     status: 'inquiry',
                     paymentStatus: 'unpaid',
+                    paymentMethod: 'qris',
+                    items: [],
                     totalPrice: 0,
                     customerName: 'Pelanggan',
                     notes: JSON.stringify({
