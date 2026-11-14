@@ -300,7 +300,7 @@ export default function MenuPage() {
 
             {/* Floating Cart Button - outside animated div */}
             {cartCount > 0 && (
-                <div className="fixed bottom-0 left-0 right-0 p-4 max-w-lg mx-auto z-30">
+                <div data-floating-cart="true" className="fixed bottom-0 left-0 right-0 p-4 max-w-lg mx-auto z-30">
                     <button
                         onClick={goToCart}
                         className="w-full py-4 rounded-2xl bg-primary text-white font-bold text-sm

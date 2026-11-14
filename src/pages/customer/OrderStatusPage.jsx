@@ -10,7 +10,6 @@ import { generateDynamicQris, MASTER_QRIS_STATIC } from '../../utils/qrisUtils';
 import { QRCodeSVG } from 'qrcode.react';
 import { Clock, ChefHat, CheckCircle2, Package, QrCode, Banknote, Download, MapPin, Bike, ShoppingBag, Phone, Navigation, Copy, RefreshCw } from 'lucide-react';
 import Spinner from '../../components/ui/Spinner';
-import OrderChatBox from '../../components/chat/OrderChatBox';
 import toast from 'react-hot-toast';
 
 export default function OrderStatusPage() {
@@ -23,7 +22,6 @@ export default function OrderStatusPage() {
     const [storeAddress, setStoreAddress] = useState('');
     const [receiptFooter, setReceiptFooter] = useState('');
     const [logoUrl, setLogoUrl] = useState('');
-    const [storeWhatsapp, setStoreWhatsapp] = useState('');
 
     useEffect(() => {
         const unsubscribe = subscribeToOrderStatus(orderId, (data) => {
@@ -42,7 +40,6 @@ export default function OrderStatusPage() {
                     }
                     const cfg = parseStoreConfig(store);
                     setStoreAddress(cfg.address || '');
-                    setStoreWhatsapp(cfg.whatsapp || '');
                 });
             }
         }, (error) => {
@@ -423,15 +420,6 @@ export default function OrderStatusPage() {
                     </div>
                 </div>
             </div>
-
-            {/* In-App Realtime Chat with Resto / Kurir */}
-            <OrderChatBox
-                orderId={orderId}
-                currentNotes={order.notes}
-                role="customer"
-                senderName={order.customerName || 'Pelanggan'}
-                targetWhatsapp={storeWhatsapp}
-            />
 
             {/* Download Receipt Button — show when payment completed or for QRIS */}
             {(order.amountPaid || order.paymentMethod === 'qris') && (

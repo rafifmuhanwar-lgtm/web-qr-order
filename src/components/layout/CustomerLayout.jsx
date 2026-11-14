@@ -1,4 +1,5 @@
 import { Outlet } from 'react-router-dom';
+import CustomerFloatingChat from '../chat/CustomerFloatingChat';
 
 export default function CustomerLayout() {
     return (
@@ -6,6 +7,8 @@ export default function CustomerLayout() {
             <main className="max-w-lg mx-auto pb-24">
                 <Outlet />
             </main>
+            {/* Persistent Customer Floating Chat CTA in Bottom Right */}
+            <CustomerFloatingChat />
         </div>
     );
 }
