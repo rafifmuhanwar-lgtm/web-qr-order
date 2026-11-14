@@ -302,10 +302,19 @@ export default function OrderStatusPage() {
                             <span className="text-slate-500">Order ID</span>
                             <span className="font-mono font-bold text-secondary">{orderId?.slice(0, 8).toUpperCase()}</span>
                         </div>
-                        <div className="flex justify-between text-sm">
-                            <span className="text-slate-500">Meja</span>
-                            <span className="font-bold text-secondary">#{order.tableNumber || '?'}</span>
-                        </div>
+                        {order.tableNumber ? (
+                            <div className="flex justify-between text-sm">
+                                <span className="text-slate-500">Meja</span>
+                                <span className="font-bold text-secondary">#{order.tableNumber}</span>
+                            </div>
+                        ) : (
+                            <div className="flex justify-between text-sm">
+                                <span className="text-slate-500">Tipe Pesanan</span>
+                                <span className="font-bold text-secondary">
+                                    {order.orderType === 'delivery' ? '🛵 Online (Delivery)' : '🛍️ Online (Take Away)'}
+                                </span>
+                            </div>
+                        )}
                         <div className="border-t border-emerald-200 pt-2 space-y-1.5">
                             {order.items?.map((item, idx) => (
                                 <div key={idx} className="flex justify-between text-sm">

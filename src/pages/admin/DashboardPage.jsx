@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { subscribeToOrders } from '../../services/orderService';
-import { ShoppingBag, DollarSign, Clock, TrendingUp, ChefHat } from 'lucide-react';
+import { ShoppingBag, DollarSign, Clock, TrendingUp, ChefHat, Bike } from 'lucide-react';
 import Badge from '../../components/ui/Badge';
 import Spinner from '../../components/ui/Spinner';
 
@@ -102,27 +102,45 @@ export default function DashboardPage() {
                     </div>
                 ) : (
                     <div className="divide-y divide-border">
-                        {recentOrders.map((order) => (
-                            <div key={order.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                                        <ShoppingBag className="w-5 h-5 text-primary" />
+                        {recentOrders.map((order) => {
+                            const isTableOrder = Boolean(order.tableNumber);
+                            const orderTitle = isTableOrder
+                                ? `Meja #${order.tableNumber}`
+                                : `Order #${order.id.slice(0, 6)}`;
+                            const isDelivery = order.orderType === 'delivery';
+
+                            return (
+                                <div key={order.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                                            isDelivery ? 'bg-orange-500/10 text-orange-600' : 'bg-primary/10 text-primary'
+                                        }`}>
+                                            {isDelivery ? <Bike className="w-5 h-5" /> : <ShoppingBag className="w-5 h-5" />}
+                                        </div>
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <p className="font-semibold text-sm text-secondary">
+                                                    {orderTitle}
+                                                </p>
+                                                {!isTableOrder && (
+                                                    <span className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-slate-100 text-slate-600">
+                                                        {isDelivery ? '🛵 Delivery' : 'Online'}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <p className="text-xs text-slate-400 mt-0.5">
+                                                {order.customerName ? `${order.customerName} · ` : ''}
+                                                {order.items?.length || 0} item · {formatTime(order.createdAt)}
+                                            </p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <p className="font-medium text-sm text-secondary">
-                                            Meja #{order.tableNumber || '?'}
-                                        </p>
-                                        <p className="text-xs text-slate-400">
-                                            {order.items?.length || 0} item · {formatTime(order.createdAt)}
-                                        </p>
+                                    <div className="text-right shrink-0">
+                                        <p className="font-bold text-sm text-secondary">{formatPrice(order.totalPrice)}</p>
+                                        <Badge status={order.status} />
                                     </div>
                                 </div>
-                                <div className="text-right">
-                                    <p className="font-bold text-sm text-secondary">{formatPrice(order.totalPrice)}</p>
-                                    <Badge status={order.status} />
-                                </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
             </div>

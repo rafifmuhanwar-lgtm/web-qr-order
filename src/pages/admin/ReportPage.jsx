@@ -300,8 +300,13 @@ export default function ReportPage() {
                                             <ShoppingBag className="w-3.5 h-3.5 text-primary" />
                                         </div>
                                         <div>
-                                            <p className="font-semibold text-sm text-secondary">Meja #{order.tableNumber || '?'}</p>
-                                            <p className="text-[10px] text-slate-400">{formatTime(order.createdAt)}</p>
+                                            <p className="font-semibold text-sm text-secondary">
+                                                {order.tableNumber ? `Meja #${order.tableNumber}` : `Order #${order.id.slice(0, 6)}`}
+                                            </p>
+                                            <p className="text-[10px] text-slate-400">
+                                                {order.customerName ? `${order.customerName} · ` : ''}
+                                                {formatTime(order.createdAt)}
+                                            </p>
                                         </div>
                                     </div>
                                     <div className="text-right">
@@ -438,7 +443,9 @@ export default function ReportPage() {
                                                         <div key={order.id} className="bg-slate-50 rounded-lg p-2.5">
                                                             <div className="flex items-center justify-between mb-1">
                                                                 <div className="flex items-center gap-1.5">
-                                                                    <span className="text-xs font-semibold text-secondary">Meja #{order.tableNumber || '?'}</span>
+                                                                    <span className="text-xs font-semibold text-secondary">
+                                                                        {order.tableNumber ? `Meja #${order.tableNumber}` : `Order #${order.id.slice(0, 6)}`}
+                                                                    </span>
                                                                     <Badge status={order.status} />
                                                                 </div>
                                                                 <span className="text-xs font-bold text-primary">{formatPrice(order.totalPrice)}</span>

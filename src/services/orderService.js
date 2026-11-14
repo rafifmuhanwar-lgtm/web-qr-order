@@ -276,7 +276,7 @@ export const exportOrdersToCSV = (orders) => {
     const headers = ['Order ID', 'Meja', 'Items', 'Total', 'Status', 'Tanggal'];
     const rows = orders.map((order) => [
         order.id,
-        order.tableNumber || '-',
+        order.tableNumber ? `Meja #${order.tableNumber}` : 'Online',
         order.items?.map((i) => `${i.name} x${i.quantity}`).join('; ') || '-',
         order.totalPrice || 0,
         order.status,

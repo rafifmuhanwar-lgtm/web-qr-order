@@ -670,7 +670,9 @@ export default function OrderPage() {
                                     <X className="w-5 h-5 text-slate-500" />
                                 </button>
                             </div>
-                            <p className="text-sm text-slate-500">Meja #{cashModal.tableNumber || '?'}</p>
+                            <p className="text-sm text-slate-500">
+                                {cashModal.tableNumber ? `Meja #${cashModal.tableNumber}` : `Order #${cashModal.id.slice(0, 6)} (Online)`}
+                            </p>
                         </div>
 
                         <div className="p-5 space-y-4">
