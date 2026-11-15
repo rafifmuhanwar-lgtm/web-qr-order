@@ -27,7 +27,6 @@ import Badge from '../../components/ui/Badge';
 import Spinner from '../../components/ui/Spinner';
 import EmptyState from '../../components/ui/EmptyState';
 import Button from '../../components/ui/Button';
-import OrderChatBox from '../../components/chat/OrderChatBox';
 import toast from 'react-hot-toast';
 
 const tabs = [
@@ -612,17 +611,6 @@ export default function OrderPage() {
                                                 <span className="text-slate-500">Order ID</span>
                                                 <span className="font-mono text-xs text-slate-600">#{detailOrder.id?.slice(0, 8).toUpperCase()}</span>
                                             </div>
-                                        </div>
-
-                                        {/* In-App Live Chat Drawer (Collapsible) */}
-                                        <div className="pt-1">
-                                            <OrderChatBox
-                                                orderId={detailOrder.id}
-                                                currentNotes={detailOrder.notes}
-                                                role="resto"
-                                                variant="collapsible"
-                                                senderName={storeData?.name || 'Pihak Resto'}
-                                            />
                                         </div>
 
                                         {/* Action Buttons */}

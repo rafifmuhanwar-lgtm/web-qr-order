@@ -27,7 +27,16 @@ export default function OrderStatusPage() {
         const unsubscribe = subscribeToOrderStatus(orderId, (data) => {
             setOrder(data);
             setLoading(false);
-            if (data.storeId) {
+
+            if (data?.customerName && data.customerName !== 'Pelanggan') {
+                sessionStorage.setItem('emakan_customer_name', data.customerName);
+                localStorage.setItem('emakan_customer_name', data.customerName);
+            }
+            if (data?.storeId) {
+                sessionStorage.setItem(`emakan_active_order_${data.storeId}`, orderId);
+            }
+
+            if (data?.storeId) {
                 getStore(data.storeId).then((store) => {
                     if (store?.qrisUrl) {
                         setQrisUrl((prev) => prev || store.qrisUrl);
@@ -172,7 +181,7 @@ export default function OrderStatusPage() {
                     </div>
                     <p className="text-slate-600 leading-relaxed pl-5 font-medium">{delivery.address || order.deliveryAddress}</p>
                     {delivery.phone && (
-                        <p className="text-slate-500 pl-5 font-mono">No. WhatsApp: {delivery.phone}</p>
+                        <p className="text-slate-500 pl-5 font-mono">No. Kontak: {delivery.phone}</p>
                     )}
 
                     {delivery.lat && delivery.lng && (

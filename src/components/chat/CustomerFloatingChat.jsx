@@ -8,6 +8,7 @@ import {
     CheckCheck,
     MessageSquare,
     Sparkles,
+    User,
 } from 'lucide-react';
 import { getStore } from '../../services/storeService';
 import { supabase } from '../../config/supabase';
@@ -27,6 +28,17 @@ export default function CustomerFloatingChat() {
     const [sending, setSending] = useState(false);
     const [hasCartBar, setHasCartBar] = useState(false);
     const messagesEndRef = useRef(null);
+
+    // Customer Name State: initialized from order, sessionStorage, or localStorage
+    const [customerName, setCustomerName] = useState(() => {
+        return (
+            sessionStorage.getItem('emakan_customer_name') ||
+            localStorage.getItem('emakan_customer_name') ||
+            ''
+        );
+    });
+    const [nameInput, setNameInput] = useState('');
+    const [isEditingName, setIsEditingName] = useState(false);
 
     // 1. Determine active order ID (from URL param or from current session)
     useEffect(() => {
@@ -130,7 +142,21 @@ export default function CustomerFloatingChat() {
         };
     }, [activeOrderId]);
 
-    // 4. Detect if floating cart bar is on screen to prevent overlap
+    // 4. Sync customer name when order is loaded or updated
+    useEffect(() => {
+        if (order?.customerName && order.customerName !== 'Pelanggan') {
+            setCustomerName(order.customerName);
+            sessionStorage.setItem('emakan_customer_name', order.customerName);
+            localStorage.setItem('emakan_customer_name', order.customerName);
+        } else if (!customerName) {
+            const saved = sessionStorage.getItem('emakan_customer_name') || localStorage.getItem('emakan_customer_name');
+            if (saved) {
+                setCustomerName(saved);
+            }
+        }
+    }, [order?.customerName, customerName]);
+
+    // 5. Detect if floating cart bar is on screen to prevent overlap
     useEffect(() => {
         const checkCartBar = () => {
             const bar = document.querySelector('[data-floating-cart="true"]');
@@ -142,7 +168,7 @@ export default function CustomerFloatingChat() {
         return () => clearInterval(interval);
     }, [location.pathname]);
 
-    // 5. Parse Chats from Order Notes JSON (Auto-filter > 6 hours old)
+    // 6. Parse Chats from Order Notes JSON (Auto-filter > 6 hours old)
     const chats = useMemo(() => {
         if (!order?.notes) return [];
         if (typeof order.notes === 'string' && order.notes.startsWith('{')) {
@@ -174,17 +200,44 @@ export default function CustomerFloatingChat() {
 
     // Scroll to latest message
     useEffect(() => {
-        if (isOpen) {
+        if (isOpen && customerName && !isEditingName) {
             messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
         }
-    }, [chats.length, isOpen]);
+    }, [chats.length, isOpen, customerName, isEditingName]);
 
     const storeName = store?.name || 'Resto';
 
-    // 6. Send message: 100% In-App via Database & WebSocket
+    // 7. Save Name handler
+    const handleSaveName = async (e) => {
+        if (e) e.preventDefault();
+        const trimmed = nameInput.trim();
+        if (!trimmed) return;
+
+        setCustomerName(trimmed);
+        sessionStorage.setItem('emakan_customer_name', trimmed);
+        localStorage.setItem('emakan_customer_name', trimmed);
+        setIsEditingName(false);
+
+        // If an active standalone chat thread already exists, update customerName in database
+        if (activeOrderId && order && (!order.customerName || order.customerName === 'Pelanggan')) {
+            try {
+                await supabase
+                    .from('orders')
+                    .update({ customerName: trimmed })
+                    .eq('id', activeOrderId);
+                setOrder((prev) => (prev ? { ...prev, customerName: trimmed } : prev));
+            } catch {
+                // non-blocking
+            }
+        }
+    };
+
+    // 8. Send message: 100% In-App via Database & WebSocket
     const handleSend = async (textToSend) => {
         const text = (textToSend || input).trim();
         if (!text) return;
+
+        const effectiveName = customerName.trim() || 'Pelanggan';
 
         setSending(true);
 
@@ -201,13 +254,13 @@ export default function CustomerFloatingChat() {
                     paymentMethod: 'qris',
                     items: [],
                     totalPrice: 0,
-                    customerName: 'Pelanggan',
+                    customerName: effectiveName,
                     notes: JSON.stringify({
                         chats: [
                             {
                                 id: Date.now().toString(),
                                 sender: 'customer',
-                                senderName: 'Pelanggan',
+                                senderName: effectiveName,
                                 text,
                                 timestamp: new Date().toISOString(),
                             },
@@ -245,7 +298,7 @@ export default function CustomerFloatingChat() {
             const optimisticChat = {
                 id: Date.now().toString(),
                 sender: 'customer',
-                senderName: order?.customerName || 'Pelanggan',
+                senderName: effectiveName,
                 text,
                 timestamp: new Date().toISOString(),
             };
@@ -259,7 +312,7 @@ export default function CustomerFloatingChat() {
                     parsed = {};
                 }
                 parsed.chats = [...(parsed.chats || []), optimisticChat];
-                return { ...prev, notes: JSON.stringify(parsed) };
+                return { ...prev, customerName: effectiveName, notes: JSON.stringify(parsed) };
             });
 
             setInput('');
@@ -267,7 +320,7 @@ export default function CustomerFloatingChat() {
             // Send to database and broadcast
             await sendOrderChatMessage(targetId, order?.notes, {
                 sender: 'customer',
-                senderName: order?.customerName || 'Pelanggan',
+                senderName: effectiveName,
                 text,
             });
         } catch (err) {
@@ -316,112 +369,180 @@ export default function CustomerFloatingChat() {
                     </div>
 
                     {/* Sub-header status bar */}
-                    <div className="bg-slate-50 border-b border-slate-200/80 px-3.5 py-1.5 flex items-center justify-between text-[11px] text-slate-500">
-                        <span className="flex items-center gap-1">
-                            <Sparkles className="w-3 h-3 text-orange-500" />
-                            <span>Obrolan Langsung In-App</span>
+                    <div className="bg-slate-50 border-b border-slate-200/80 px-3.5 py-1.5 flex items-center justify-between text-[11px] text-slate-500 shrink-0">
+                        <span className="flex items-center gap-1 truncate max-w-[200px]">
+                            <Sparkles className="w-3 h-3 text-orange-500 shrink-0" />
+                            <span className="truncate">
+                                {customerName ? (
+                                    <>
+                                        Sebagai <span className="font-semibold text-slate-700">{customerName}</span>
+                                    </>
+                                ) : (
+                                    'Obrolan Langsung In-App'
+                                )}
+                            </span>
+                            {customerName && !isEditingName && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setNameInput(customerName);
+                                        setIsEditingName(true);
+                                    }}
+                                    className="text-[10px] text-orange-600 hover:underline cursor-pointer ml-1 shrink-0"
+                                    title="Ubah Nama"
+                                >
+                                    (Ubah)
+                                </button>
+                            )}
                         </span>
                         {activeOrderId && (
-                            <span className="font-mono text-[10px] text-slate-400">
+                            <span className="font-mono text-[10px] text-slate-400 shrink-0 ml-1">
                                 #{activeOrderId.slice(0, 8)}
                             </span>
                         )}
                     </div>
 
-                    {/* Messages Body */}
-                    <div className="flex-1 p-3.5 overflow-y-auto space-y-2.5 bg-slate-50">
-                        {chats.length === 0 ? (
-                            <div className="h-full flex flex-col items-center justify-center text-center p-4">
-                                <div className="w-11 h-11 rounded-full bg-orange-50 text-orange-500 border border-orange-200 flex items-center justify-center mb-2">
-                                    <MessageSquare className="w-5 h-5" />
-                                </div>
-                                <p className="text-xs font-bold text-slate-700">Obrolan Langsung dengan Resto</p>
-                                <p className="text-[11px] text-slate-400 mt-1 max-w-[220px] leading-relaxed">
-                                    Ketik pertanyaan atau catatan khusus Anda di bawah. Pesan akan langsung diterima kasir/dapur secara real-time.
-                                </p>
+                    {/* Chat Content: Step 1 = Input Name if not set, Step 2 = Chat Screen */}
+                    {(!customerName || isEditingName) ? (
+                        <div className="flex-1 p-5 flex flex-col items-center justify-center text-center bg-slate-50">
+                            <div className="w-12 h-12 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center mb-3 shadow-xs">
+                                <User className="w-6 h-6" />
                             </div>
-                        ) : (
-                            chats.map((chat) => {
-                                const isMe = chat.sender === 'customer';
-                                return (
-                                    <div
-                                        key={chat.id}
-                                        className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}
-                                    >
-                                        <span className="text-[10px] text-slate-400 mb-0.5 px-1 font-medium">
-                                            {chat.sender === 'resto' ? storeName : 'Saya'}
-                                        </span>
-                                        <div
-                                            className={`max-w-[82%] rounded-2xl px-3.5 py-2 text-xs shadow-xs ${
-                                                isMe
-                                                    ? 'bg-orange-500 text-white rounded-br-xs'
-                                                    : 'bg-white text-slate-800 border border-slate-200/80 rounded-bl-xs'
-                                            }`}
+                            <h4 className="text-sm font-bold text-slate-800">
+                                {isEditingName ? 'Ubah Nama Anda' : 'Mulai Obrolan'}
+                            </h4>
+                            <p className="text-xs text-slate-500 mt-1 max-w-[240px] leading-relaxed">
+                                {isEditingName
+                                    ? 'Perbarui nama Anda yang tampil pada ruang chat resto.'
+                                    : 'Masukkan nama Anda agar pihak resto dapat mengenali dan merespons pesan Anda.'}
+                            </p>
+                            <form onSubmit={handleSaveName} className="w-full mt-4 space-y-2.5">
+                                <input
+                                    type="text"
+                                    autoFocus
+                                    value={nameInput}
+                                    onChange={(e) => setNameInput(e.target.value)}
+                                    placeholder="Nama Anda (contoh: Budi / Siti)"
+                                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs text-slate-800 outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all text-center placeholder:text-slate-400 shadow-2xs"
+                                />
+                                <div className="flex gap-2">
+                                    {isEditingName && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsEditingName(false)}
+                                            className="flex-1 py-2.5 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold text-xs transition-colors cursor-pointer"
                                         >
-                                            <p className="leading-relaxed break-words">{chat.text}</p>
-                                            <div
-                                                className={`flex items-center justify-end gap-1 mt-1 text-[9px] ${
-                                                    isMe ? 'text-white/80' : 'text-slate-400'
-                                                }`}
-                                            >
-                                                <span>
-                                                    {chat.timestamp
-                                                        ? new Date(chat.timestamp).toLocaleTimeString('id-ID', {
-                                                              hour: '2-digit',
-                                                              minute: '2-digit',
-                                                          })
-                                                        : ''}
-                                                </span>
-                                                {isMe && <CheckCheck className="w-2.5 h-2.5" />}
-                                            </div>
+                                            Batal
+                                        </button>
+                                    )}
+                                    <button
+                                        type="submit"
+                                        disabled={!nameInput.trim()}
+                                        className="flex-1 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs transition-colors disabled:opacity-40 cursor-pointer shadow-sm"
+                                    >
+                                        {isEditingName ? 'Simpan Nama' : 'Mulai Mengobrol'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    ) : (
+                        <>
+                            {/* Messages Body */}
+                            <div className="flex-1 p-3.5 overflow-y-auto space-y-2.5 bg-slate-50">
+                                {chats.length === 0 ? (
+                                    <div className="h-full flex flex-col items-center justify-center text-center p-4">
+                                        <div className="w-11 h-11 rounded-full bg-orange-50 text-orange-500 border border-orange-200 flex items-center justify-center mb-2">
+                                            <MessageSquare className="w-5 h-5" />
                                         </div>
+                                        <p className="text-xs font-bold text-slate-700">Obrolan Langsung dengan Resto</p>
+                                        <p className="text-[11px] text-slate-400 mt-1 max-w-[220px] leading-relaxed">
+                                            Halo {customerName}! Ketik pertanyaan atau catatan Anda di bawah. Pesan langsung terhubung ke kasir.
+                                        </p>
                                     </div>
-                                );
-                            })
-                        )}
-                        <div ref={messagesEndRef} />
-                    </div>
+                                ) : (
+                                    chats.map((chat) => {
+                                        const isMe = chat.sender === 'customer';
+                                        return (
+                                            <div
+                                                key={chat.id}
+                                                className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}
+                                            >
+                                                <span className="text-[10px] text-slate-400 mb-0.5 px-1 font-medium">
+                                                    {chat.sender === 'resto' ? storeName : (customerName || 'Saya')}
+                                                </span>
+                                                <div
+                                                    className={`max-w-[82%] rounded-2xl px-3.5 py-2 text-xs shadow-xs ${
+                                                        isMe
+                                                            ? 'bg-orange-500 text-white rounded-br-xs'
+                                                            : 'bg-white text-slate-800 border border-slate-200/80 rounded-bl-xs'
+                                                    }`}
+                                                >
+                                                    <p className="leading-relaxed break-words">{chat.text}</p>
+                                                    <div
+                                                        className={`flex items-center justify-end gap-1 mt-1 text-[9px] ${
+                                                            isMe ? 'text-white/80' : 'text-slate-400'
+                                                        }`}
+                                                    >
+                                                        <span>
+                                                            {chat.timestamp
+                                                                ? new Date(chat.timestamp).toLocaleTimeString('id-ID', {
+                                                                      hour: '2-digit',
+                                                                      minute: '2-digit',
+                                                                  })
+                                                                : ''}
+                                                        </span>
+                                                        {isMe && <CheckCheck className="w-2.5 h-2.5" />}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })
+                                )}
+                                <div ref={messagesEndRef} />
+                            </div>
 
-                    {/* Quick Templates */}
-                    <div className="px-2.5 py-1.5 bg-white border-t border-slate-100 flex gap-1.5 overflow-x-auto no-scrollbar shrink-0">
-                        {quickTemplates.map((tmpl, idx) => (
-                            <button
-                                key={idx}
-                                type="button"
-                                onClick={() => handleSend(tmpl)}
-                                disabled={sending}
-                                className="text-[10px] whitespace-nowrap px-2.5 py-1 bg-slate-100 hover:bg-orange-50 hover:text-orange-600 text-slate-600 rounded-full font-medium transition-colors cursor-pointer shrink-0"
+                            {/* Quick Templates */}
+                            <div className="px-2.5 py-1.5 bg-white border-t border-slate-100 flex gap-1.5 overflow-x-auto no-scrollbar shrink-0">
+                                {quickTemplates.map((tmpl, idx) => (
+                                    <button
+                                        key={idx}
+                                        type="button"
+                                        onClick={() => handleSend(tmpl)}
+                                        disabled={sending}
+                                        className="text-[10px] whitespace-nowrap px-2.5 py-1 bg-slate-100 hover:bg-orange-50 hover:text-orange-600 text-slate-600 rounded-full font-medium transition-colors cursor-pointer shrink-0"
+                                    >
+                                        {tmpl}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* Input Bar */}
+                            <form
+                                onSubmit={(e) => {
+                                    e.preventDefault();
+                                    handleSend();
+                                }}
+                                className="p-2.5 bg-white border-t border-slate-200 flex items-center gap-2 shrink-0"
                             >
-                                {tmpl}
-                            </button>
-                        ))}
-                    </div>
-
-                    {/* Input Bar */}
-                    <form
-                        onSubmit={(e) => {
-                            e.preventDefault();
-                            handleSend();
-                        }}
-                        className="p-2.5 bg-white border-t border-slate-200 flex items-center gap-2 shrink-0"
-                    >
-                        <input
-                            type="text"
-                            value={input}
-                            onChange={(e) => setInput(e.target.value)}
-                            placeholder="Tulis pesan ke resto..."
-                            disabled={sending}
-                            className="flex-1 bg-slate-100/80 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 outline-none focus:border-orange-500 focus:bg-white transition-all placeholder:text-slate-400"
-                        />
-                        <button
-                            type="submit"
-                            disabled={sending || !input.trim()}
-                            className="w-8 h-8 rounded-xl bg-orange-500 hover:bg-orange-600 text-white flex items-center justify-center transition-colors disabled:opacity-40 cursor-pointer shrink-0 shadow-sm"
-                            aria-label="Kirim Pesan"
-                        >
-                            <Send className="w-3.5 h-3.5" />
-                        </button>
-                    </form>
+                                <input
+                                    type="text"
+                                    value={input}
+                                    onChange={(e) => setInput(e.target.value)}
+                                    placeholder="Tulis pesan ke resto..."
+                                    disabled={sending}
+                                    className="flex-1 bg-slate-100/80 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 outline-none focus:border-orange-500 focus:bg-white transition-all placeholder:text-slate-400"
+                                />
+                                <button
+                                    type="submit"
+                                    disabled={sending || !input.trim()}
+                                    className="w-8 h-8 rounded-xl bg-orange-500 hover:bg-orange-600 text-white flex items-center justify-center transition-colors disabled:opacity-40 cursor-pointer shrink-0 shadow-sm"
+                                    aria-label="Kirim Pesan"
+                                >
+                                    <Send className="w-3.5 h-3.5" />
+                                </button>
+                            </form>
+                        </>
+                    )}
                 </div>
             )}
 
@@ -433,7 +554,12 @@ export default function CustomerFloatingChat() {
             >
                 <button
                     type="button"
-                    onClick={() => setIsOpen(!isOpen)}
+                    onClick={() => {
+                        if (!isOpen && !customerName) {
+                            setNameInput('');
+                        }
+                        setIsOpen(!isOpen);
+                    }}
                     className={`flex items-center gap-2 px-4 py-3 rounded-full text-white font-bold text-xs shadow-xl hover:shadow-2xl hover:scale-105 active:scale-95 transition-all cursor-pointer ${
                         isOpen
                             ? 'bg-slate-800 hover:bg-slate-900 border border-slate-700'

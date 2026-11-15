@@ -16,7 +16,6 @@ import {
     ShoppingBag,
     Bike,
     MapPin,
-    Phone,
     User,
     CheckCircle2,
     HeartHandshake,
@@ -41,8 +40,9 @@ export default function CartPage() {
 
     const [submitting, setSubmitting] = useState(false);
     const [generalNotes, setGeneralNotes] = useState('');
-    const [customerName, setCustomerName] = useState('');
-    const [customerPhone, setCustomerPhone] = useState('');
+    const [customerName, setCustomerName] = useState(() => {
+        return sessionStorage.getItem('emakan_customer_name') || localStorage.getItem('emakan_customer_name') || '';
+    });
     const [deliveryAddress, setDeliveryAddress] = useState('');
     const [orderType, setOrderType] = useState(isOnlineOrder ? 'take_away' : 'dine_in');
     const [paymentMethod, setPaymentMethod] = useState(isOnlineOrder ? 'qris' : '');
@@ -145,10 +145,6 @@ export default function CartPage() {
                 toast.error('Mohon isi nama pemesan');
                 return;
             }
-            if (!customerPhone.trim()) {
-                toast.error('Mohon isi nomor WhatsApp aktif');
-                return;
-            }
             if (orderType === 'delivery') {
                 if (!deliveryAddress.trim()) {
                     toast.error('Mohon isi alamat pengiriman lengkap');
@@ -179,12 +175,18 @@ export default function CartPage() {
             const selectedPayment = isOnlineOrder ? 'qris' : paymentMethod;
             const finalOrderType = isOnlineOrder ? orderType : (orderType || 'dine_in');
 
+            const trimmedName = customerName.trim();
+            if (trimmedName) {
+                sessionStorage.setItem('emakan_customer_name', trimmedName);
+                localStorage.setItem('emakan_customer_name', trimmedName);
+            }
+
             const orderData = {
                 storeId,
                 tableId: tableId || null,
                 tableNumber: tableId ? String(tableId).padStart(3, '0') : null,
-                customerName: customerName.trim() || (tableId ? `Tamu Meja #${String(tableId).padStart(3, '0')}` : 'Pelanggan Online'),
-                customerPhone: customerPhone ? customerPhone.trim() : null,
+                customerName: trimmedName || (tableId ? `Tamu Meja #${String(tableId).padStart(3, '0')}` : 'Pelanggan Online'),
+                customerPhone: null,
                 deliveryAddress: finalOrderType === 'delivery' ? deliveryAddress.trim() : null,
                 shippingFee: finalOrderType === 'delivery' ? (shippingCalculation.fee || 0) : 0,
                 courierTip: finalOrderType === 'delivery' ? (Number(courierTip) || 0) : 0,
@@ -207,6 +209,9 @@ export default function CartPage() {
 
             const orderId = await createOrder(orderData);
             sessionStorage.removeItem(`cart_${storeId}_${tableId || 'online'}`);
+            if (storeId) {
+                sessionStorage.setItem(`emakan_active_order_${storeId}`, orderId);
+            }
 
             if (selectedPayment === 'qris') {
                 const invoice = generatePayhookInvoice(finalTotal, orderId);
@@ -370,22 +375,6 @@ export default function CartPage() {
                                             className="w-full pl-9 pr-3 py-2 rounded-xl border border-border text-xs focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
                                         />
                                     </div>
-                                </div>
-
-                                <div>
-                                    <label className="block text-xs font-medium text-slate-700 mb-1">Nomor WhatsApp Aktif</label>
-                                    <div className="relative">
-                                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                                        <input
-                                            type="tel"
-                                            required
-                                            value={customerPhone}
-                                            onChange={(e) => setCustomerPhone(e.target.value)}
-                                            placeholder="08123456789"
-                                            className="w-full pl-9 pr-3 py-2 rounded-xl border border-border text-xs focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
-                                        />
-                                    </div>
-                                    <p className="text-[10px] text-slate-400 mt-1">Kasir akan menghubungi nomor ini saat pesanan siap.</p>
                                 </div>
 
                                 {orderType === 'delivery' && (
