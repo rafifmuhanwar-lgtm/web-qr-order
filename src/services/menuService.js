@@ -1,4 +1,5 @@
 import { supabase } from '../config/supabase';
+import { compressImage } from '../utils/imageCompressor';
 
 const COLLECTION = 'menus';
 
@@ -39,12 +40,23 @@ export const deleteMenu = async (id) => {
 };
 
 export const uploadMenuImage = async (file) => {
-    const fileExt = file.name.split('.').pop();
+    // Kompresi otomatis di background sebelum upload (hemat kuota, tetap jernih dan tajam)
+    const compressed = await compressImage(file, {
+        maxWidth: 1200,
+        maxHeight: 1200,
+        quality: 0.85,
+    });
+
+    const fileExt = compressed.name ? compressed.name.split('.').pop() : 'webp';
     const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
 
     const { error: uploadError } = await supabase.storage
         .from('menus')
-        .upload(fileName, file);
+        .upload(fileName, compressed, {
+            contentType: compressed.type || 'image/webp',
+            cacheControl: '31536000',
+            upsert: false,
+        });
 
     if (uploadError) {
         throw new Error('Gagal upload gambar ke server');

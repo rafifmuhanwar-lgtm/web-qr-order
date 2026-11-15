@@ -106,7 +106,7 @@ export default function SettingsPage() {
                 receiptFooter,
             });
             await refreshStore();
-            toast.success('Pengaturan toko & lokasi berhasil disimpan! ✅');
+            toast.success('Pengaturan toko & lokasi berhasil disimpan');
         } catch (err) {
             console.error('Save settings error:', err);
             toast.error(err.message || 'Gagal menyimpan pengaturan');
