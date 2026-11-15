@@ -14,6 +14,7 @@ import { getStore } from '../../services/storeService';
 import { supabase } from '../../config/supabase';
 import { sendOrderChatMessage, broadcastOrderChange } from '../../services/orderService';
 import { isChatExpired, chatSyncChannel } from '../../services/chatService';
+import { validateCustomerName } from '../../utils/nameValidator';
 import toast from 'react-hot-toast';
 
 export default function CustomerFloatingChat() {
@@ -210,13 +211,19 @@ export default function CustomerFloatingChat() {
     // 7. Save Name handler
     const handleSaveName = async (e) => {
         if (e) e.preventDefault();
-        const trimmed = nameInput.trim();
-        if (!trimmed) return;
 
+        const check = validateCustomerName(nameInput);
+        if (!check.valid) {
+            toast.error(check.message);
+            return;
+        }
+
+        const trimmed = check.sanitizedName;
         setCustomerName(trimmed);
         sessionStorage.setItem('emakan_customer_name', trimmed);
         localStorage.setItem('emakan_customer_name', trimmed);
         setIsEditingName(false);
+        toast.success(`Nama disimpan sebagai ${trimmed}`);
 
         // If an active standalone chat thread already exists, update customerName in database
         if (activeOrderId && order && (!order.customerName || order.customerName === 'Pelanggan')) {
@@ -416,16 +423,23 @@ export default function CustomerFloatingChat() {
                                     ? 'Perbarui nama Anda yang tampil pada ruang chat resto.'
                                     : 'Masukkan nama Anda agar pihak resto dapat mengenali dan merespons pesan Anda.'}
                             </p>
-                            <form onSubmit={handleSaveName} className="w-full mt-4 space-y-2.5">
-                                <input
-                                    type="text"
-                                    autoFocus
-                                    value={nameInput}
-                                    onChange={(e) => setNameInput(e.target.value)}
-                                    placeholder="Nama Anda (contoh: Budi / Siti)"
-                                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs text-slate-800 outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all text-center placeholder:text-slate-400 shadow-2xs"
-                                />
-                                <div className="flex gap-2">
+                            <form onSubmit={handleSaveName} className="w-full mt-4 space-y-2">
+                                <div className="space-y-1">
+                                    <input
+                                        type="text"
+                                        autoFocus
+                                        maxLength={15}
+                                        value={nameInput}
+                                        onChange={(e) => setNameInput(e.target.value)}
+                                        placeholder="Nama Anda (2-15 karakter)"
+                                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs text-slate-800 outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all text-center placeholder:text-slate-400 shadow-2xs"
+                                    />
+                                    <div className="flex justify-between items-center text-[10px] text-slate-400 px-1">
+                                        <span>Min 2, Maks 15 karakter</span>
+                                        <span>{nameInput.length}/15</span>
+                                    </div>
+                                </div>
+                                <div className="flex gap-2 pt-1">
                                     {isEditingName && (
                                         <button
                                             type="button"
@@ -437,7 +451,7 @@ export default function CustomerFloatingChat() {
                                     )}
                                     <button
                                         type="submit"
-                                        disabled={!nameInput.trim()}
+                                        disabled={nameInput.trim().length < 2}
                                         className="flex-1 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs transition-colors disabled:opacity-40 cursor-pointer shadow-sm"
                                     >
                                         {isEditingName ? 'Simpan Nama' : 'Mulai Mengobrol'}

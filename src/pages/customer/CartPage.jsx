@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { createOrder } from '../../services/orderService';
 import { getStore } from '../../services/storeService';
 import { parseStoreConfig, calculateDistanceKm, calculateShippingFee } from '../../utils/deliveryUtils';
+import { validateCustomerName } from '../../utils/nameValidator';
 import { generatePayhookInvoice } from '../../services/payhookService';
 import {
     ArrowLeft,
@@ -140,11 +141,15 @@ export default function CartPage() {
             return;
         }
 
+        let sanitizedName = '';
         if (isOnlineOrder) {
-            if (!customerName.trim()) {
-                toast.error('Mohon isi nama pemesan');
+            const check = validateCustomerName(customerName);
+            if (!check.valid) {
+                toast.error(check.message);
                 return;
             }
+            sanitizedName = check.sanitizedName;
+
             if (orderType === 'delivery') {
                 if (!deliveryAddress.trim()) {
                     toast.error('Mohon isi alamat pengiriman lengkap');
@@ -160,6 +165,14 @@ export default function CartPage() {
                 }
             }
         } else {
+            if (customerName.trim()) {
+                const check = validateCustomerName(customerName);
+                if (!check.valid) {
+                    toast.error(check.message);
+                    return;
+                }
+                sanitizedName = check.sanitizedName;
+            }
             if (!orderType) {
                 toast.error('Pilih tipe pesanan (Dine In / Take Away)');
                 return;
@@ -175,17 +188,16 @@ export default function CartPage() {
             const selectedPayment = isOnlineOrder ? 'qris' : paymentMethod;
             const finalOrderType = isOnlineOrder ? orderType : (orderType || 'dine_in');
 
-            const trimmedName = customerName.trim();
-            if (trimmedName) {
-                sessionStorage.setItem('emakan_customer_name', trimmedName);
-                localStorage.setItem('emakan_customer_name', trimmedName);
+            if (sanitizedName) {
+                sessionStorage.setItem('emakan_customer_name', sanitizedName);
+                localStorage.setItem('emakan_customer_name', sanitizedName);
             }
 
             const orderData = {
                 storeId,
                 tableId: tableId || null,
                 tableNumber: tableId ? String(tableId).padStart(3, '0') : null,
-                customerName: trimmedName || (tableId ? `Tamu Meja #${String(tableId).padStart(3, '0')}` : 'Pelanggan Online'),
+                customerName: sanitizedName || (tableId ? `Tamu Meja #${String(tableId).padStart(3, '0')}` : 'Pelanggan Online'),
                 customerPhone: null,
                 deliveryAddress: finalOrderType === 'delivery' ? deliveryAddress.trim() : null,
                 shippingFee: finalOrderType === 'delivery' ? (shippingCalculation.fee || 0) : 0,
@@ -363,18 +375,23 @@ export default function CartPage() {
                             {/* Data Kontak Pemesan Online */}
                             <div className="space-y-3 pt-2">
                                 <div>
-                                    <label className="block text-xs font-medium text-slate-700 mb-1">Nama Pemesan</label>
+                                    <div className="flex items-center justify-between mb-1">
+                                        <label className="block text-xs font-medium text-slate-700">Nama Pemesan</label>
+                                        <span className="text-[10px] text-slate-400">{customerName.length}/15 karakter</span>
+                                    </div>
                                     <div className="relative">
                                         <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                                         <input
                                             type="text"
                                             required
+                                            maxLength={15}
                                             value={customerName}
                                             onChange={(e) => setCustomerName(e.target.value)}
-                                            placeholder="Nama Anda"
+                                            placeholder="Nama Anda (2-15 karakter)"
                                             className="w-full pl-9 pr-3 py-2 rounded-xl border border-border text-xs focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
                                         />
                                     </div>
+                                    <p className="text-[10px] text-slate-400 mt-1">Min. 2 & maks. 15 karakter (nama asli wajar).</p>
                                 </div>
 
                                 {orderType === 'delivery' && (
