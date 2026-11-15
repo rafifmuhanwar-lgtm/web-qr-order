@@ -336,7 +336,7 @@ export default function LandingPage() {
                                         <Bike className="w-3.5 h-3.5" /> Pelacakan & Kurir
                                     </span>
                                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-200/80 text-orange-800 animate-pulse">
-                                        🛵 Sedang Diantar
+                                        Sedang Diantar
                                     </span>
                                 </div>
 
@@ -384,7 +384,7 @@ export default function LandingPage() {
                                         Scan Meja #03
                                     </span>
                                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
-                                        🍽️ Makan di Tempat
+                                        Makan di Tempat
                                     </span>
                                 </div>
                                 <div className="space-y-1.5 text-xs">
@@ -422,7 +422,7 @@ export default function LandingPage() {
                                     <p className="text-[11px] text-neutral-500">3 Menu • Tanpa Antre di Meja Kasir</p>
                                     <div className="pt-2 flex items-center gap-2">
                                         <span className="px-2.5 py-1 rounded-lg bg-orange-600 text-white font-bold text-[10px]">
-                                            👨‍🍳 Siap Disajikan
+                                            Siap Disajikan
                                         </span>
                                         <span className="px-2 py-1 rounded-lg bg-neutral-100 text-neutral-700 font-semibold text-[10px] flex items-center gap-1">
                                             <Receipt className="w-3 h-3" /> Cetak Struk

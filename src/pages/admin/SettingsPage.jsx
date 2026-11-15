@@ -321,7 +321,7 @@ export default function SettingsPage() {
                     <textarea
                         value={welcomeMessage}
                         onChange={(e) => setWelcomeMessage(e.target.value)}
-                        placeholder="Contoh: Selamat datang di Toko Gacoan! 🎉"
+                        placeholder="Contoh: Selamat datang di Toko Gacoan!"
                         className="w-full p-3 rounded-xl border border-border text-sm resize-none h-16 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
                         maxLength={100}
                     />
@@ -336,7 +336,7 @@ export default function SettingsPage() {
                     <textarea
                         value={receiptFooter}
                         onChange={(e) => setReceiptFooter(e.target.value)}
-                        placeholder="Contoh: Promo 10% setiap hari Jumat! 🎁"
+                        placeholder="Contoh: Promo 10% setiap hari Jumat!"
                         className="w-full p-3 rounded-xl border border-border text-sm resize-none h-16 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
                         maxLength={120}
                     />

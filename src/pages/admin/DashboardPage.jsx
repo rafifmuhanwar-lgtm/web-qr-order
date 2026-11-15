@@ -124,7 +124,7 @@ export default function DashboardPage() {
                                                 </p>
                                                 {!isTableOrder && (
                                                     <span className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-slate-100 text-slate-600">
-                                                        {isDelivery ? '🛵 Delivery' : 'Online'}
+                                                        {isDelivery ? 'Delivery' : 'Online'}
                                                     </span>
                                                 )}
                                             </div>

@@ -65,7 +65,7 @@ export default function MasterRoute({ children }) {
         if (pin === MASTER_PIN) {
             sessionStorage.setItem(MASTER_SESSION_KEY, 'true');
             setPinAuthenticated(true);
-            toast.success('Akses Master Admin Diberikan 🛡️');
+            toast.success('Akses Master Admin Diberikan');
         } else {
             setErrorMsg('PIN Keamanan Salah! Akses Ditolak.');
             setPin('');

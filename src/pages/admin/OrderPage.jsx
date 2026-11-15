@@ -321,7 +321,7 @@ export default function OrderPage() {
                                                         ? 'bg-blue-50 text-blue-700 border border-blue-200'
                                                         : 'bg-slate-100 text-slate-600 border border-slate-200'
                                             }`}>
-                                                {order.orderType === 'delivery' ? '🛵 Delivery' : order.orderType === 'take_away' ? '🛍️ Take Away' : '🍽️ Dine In'}
+                                                {order.orderType === 'delivery' ? 'Delivery' : order.orderType === 'take_away' ? 'Take Away' : 'Dine In'}
                                             </span>
                                         </div>
                                         <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1.5 font-mono">
@@ -407,7 +407,7 @@ export default function OrderPage() {
 
                                     {delivery.userNotes && (
                                         <p className="text-[11px] text-slate-500 bg-slate-50 p-2 rounded-lg border border-slate-100">
-                                            📝 {delivery.userNotes}
+                                            {delivery.userNotes}
                                         </p>
                                     )}
                                 </div>
@@ -479,8 +479,8 @@ export default function OrderPage() {
                                         {detailOrder.tableNumber
                                             ? `Meja #${detailOrder.tableNumber}`
                                             : detailOrder.orderType === 'delivery'
-                                                ? '🛵 Pesanan Delivery'
-                                                : '🛍️ Pesanan Take Away'}
+                                                ? 'Pesanan Delivery'
+                                                : 'Pesanan Take Away'}
                                     </h4>
                                     <p className="text-xs text-slate-400">{formatTime(detailOrder.createdAt)}</p>
                                 </div>
@@ -506,7 +506,7 @@ export default function OrderPage() {
                                                         <span className="font-medium text-slate-700">{formatPrice(item.price * item.quantity)}</span>
                                                     </div>
                                                     {item.notes && (
-                                                        <p className="text-[10px] text-amber-600 mt-0.5 ml-1">📝 {item.notes}</p>
+                                                        <p className="text-[10px] text-amber-600 mt-0.5 ml-1">{item.notes}</p>
                                                     )}
                                                 </div>
                                             ))}
@@ -529,7 +529,7 @@ export default function OrderPage() {
                                             )}
 
                                             {delivery.userNotes && (
-                                                <p className="text-xs text-slate-500 pt-2 border-t border-border">📝 Catatan: {delivery.userNotes}</p>
+                                                <p className="text-xs text-slate-500 pt-2 border-t border-border">Catatan: {delivery.userNotes}</p>
                                             )}
 
                                             <div className="border-t-2 border-border pt-2 mt-2">
@@ -547,10 +547,10 @@ export default function OrderPage() {
                                                     <span className="text-slate-500">Tipe Pesanan</span>
                                                     <span className="font-semibold text-secondary">
                                                         {detailOrder.orderType === 'dine_in'
-                                                            ? '🍽️ Dine In (Makan di Meja)'
+                                                            ? 'Dine In (Makan di Meja)'
                                                             : detailOrder.orderType === 'delivery'
-                                                                ? '🛵 Delivery (Kirim ke Rumah)'
-                                                                : '🛍️ Take Away (Ambil Sendiri)'}
+                                                                ? 'Delivery (Kirim ke Rumah)'
+                                                                : 'Take Away (Ambil Sendiri)'}
                                                     </span>
                                                 </div>
                                             )}
@@ -576,7 +576,7 @@ export default function OrderPage() {
                                             {/* Delivery Address & Google Maps Navigation */}
                                             {detailOrder.orderType === 'delivery' && (delivery.address || detailOrder.deliveryAddress) && (
                                                 <div className="text-xs pt-2 border-t border-border mt-1">
-                                                    <span className="text-slate-500 font-semibold block mb-1">📍 Alamat Pengantaran:</span>
+                                                    <span className="text-slate-500 font-semibold block mb-1">Alamat Pengantaran:</span>
                                                     <p className="font-medium text-slate-700 bg-white p-2.5 rounded-xl border border-border leading-relaxed">
                                                         {delivery.address || detailOrder.deliveryAddress}
                                                     </p>
@@ -598,13 +598,13 @@ export default function OrderPage() {
                                             <div className="flex justify-between text-sm">
                                                 <span className="text-slate-500">Pembayaran</span>
                                                 <span className="font-semibold text-secondary">
-                                                    {detailOrder.paymentMethod === 'qris' ? '📱 QRIS' : detailOrder.paymentMethod === 'cash' ? '💵 Tunai' : '-'}
+                                                    {detailOrder.paymentMethod === 'qris' ? 'QRIS' : detailOrder.paymentMethod === 'cash' ? 'Tunai' : '-'}
                                                 </span>
                                             </div>
                                             <div className="flex justify-between text-sm">
                                                 <span className="text-slate-500">Status Bayar</span>
                                                 <span className={`font-semibold ${detailOrder.amountPaid ? 'text-emerald-600' : 'text-amber-600'}`}>
-                                                    {detailOrder.amountPaid ? '✅ Lunas' : '⏳ Belum bayar'}
+                                                    {detailOrder.amountPaid ? 'Lunas' : 'Belum bayar'}
                                                 </span>
                                             </div>
                                             <div className="flex justify-between text-sm">

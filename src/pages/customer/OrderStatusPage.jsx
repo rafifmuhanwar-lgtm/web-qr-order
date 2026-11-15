@@ -156,8 +156,8 @@ export default function OrderStatusPage() {
                         {order.tableNumber
                             ? `Meja #${order.tableNumber}`
                             : order.orderType === 'delivery'
-                                ? '🛵 Antar ke Rumah (Delivery)'
-                                : '🛍️ Ambil di Resto (Take Away)'}
+                                ? 'Antar ke Rumah (Delivery)'
+                                : 'Ambil di Resto (Take Away)'}
                     </p>
                     {order.customerName && (
                         <p className="text-white/80 text-xs mt-0.5">Pemesan: {order.customerName}</p>
@@ -276,7 +276,7 @@ export default function OrderStatusPage() {
                                 if (order.paymentStatus === 'paid') {
                                     toast.success('Pembayaran telah lunas!');
                                 } else {
-                                    toast('Menunggu verifikasi pembayaran...', { icon: '⏳' });
+                                    toast('Menunggu verifikasi pembayaran...');
                                 }
                             }, 800);
                         }}
@@ -320,7 +320,7 @@ export default function OrderStatusPage() {
                             <div className="flex justify-between text-sm">
                                 <span className="text-slate-500">Tipe Pesanan</span>
                                 <span className="font-bold text-secondary">
-                                    {order.orderType === 'delivery' ? '🛵 Online (Delivery)' : '🛍️ Online (Take Away)'}
+                                    {order.orderType === 'delivery' ? 'Online (Delivery)' : 'Online (Take Away)'}
                                 </span>
                             </div>
                         )}
@@ -354,7 +354,7 @@ export default function OrderStatusPage() {
 
                     {!order.amountPaid && (
                         <div className="mt-4 bg-amber-50 border border-amber-200 rounded-xl p-3 text-center">
-                            <p className="text-amber-800 font-semibold text-sm animate-pulse">💵 Silakan bayar di kasir</p>
+                            <p className="text-amber-800 font-semibold text-sm animate-pulse">Silakan bayar di kasir</p>
                             <p className="text-amber-600 text-xs mt-1">Tunjukkan halaman ini ke kasir</p>
                         </div>
                     )}
@@ -402,7 +402,7 @@ export default function OrderStatusPage() {
                             <div>
                                 <span className="text-slate-700">{item.name} × {item.quantity}</span>
                                 {item.notes && (
-                                    <p className="text-xs text-amber-600 mt-0.5">📝 {item.notes}</p>
+                                    <p className="text-xs text-amber-600 mt-0.5">{item.notes}</p>
                                 )}
                             </div>
                             <span className="font-medium text-slate-600">{formatPrice(item.price * item.quantity)}</span>
@@ -429,7 +429,7 @@ export default function OrderStatusPage() {
 
                     {delivery.userNotes && (
                         <div className="pt-2 border-t border-border">
-                            <p className="text-xs text-slate-500">📝 Catatan: {delivery.userNotes}</p>
+                            <p className="text-xs text-slate-500">Catatan: {delivery.userNotes}</p>
                         </div>
                     )}
                     <div className="pt-3 border-t border-border flex justify-between font-bold">

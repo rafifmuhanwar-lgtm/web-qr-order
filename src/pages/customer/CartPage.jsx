@@ -255,7 +255,7 @@ export default function CartPage() {
                 <div>
                     <h1 className="font-bold text-secondary text-base">Keranjang Pesanan</h1>
                     <p className="text-xs text-slate-400">
-                        {isOnlineOrder ? '🛍️ Pesan Online / Dari Rumah' : `Meja #${String(tableId).padStart(3, '0')}`} · {cart.length} item
+                        {isOnlineOrder ? 'Pesan Online / Dari Rumah' : `Meja #${String(tableId).padStart(3, '0')}`} · {cart.length} item
                     </p>
                 </div>
             </div>

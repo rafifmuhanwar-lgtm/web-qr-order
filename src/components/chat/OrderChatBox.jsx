@@ -66,14 +66,14 @@ export default function OrderChatBox({
     const quickTemplates =
         role === 'customer'
             ? [
-                  'Pesanan sudah sampai mana kak? 🛵',
-                  'Jangan lupa alat makan ya kak 🙏',
-                  'Saya sudah di depan lokasi 👍',
+                  'Pesanan sudah sampai mana kak?',
+                  'Jangan lupa alat makan ya kak',
+                  'Saya sudah di depan lokasi',
               ]
             : [
-                  'Pesanan sedang disiapkan di dapur 👨‍🍳',
-                  'Kurir kami sedang menuju lokasi 🛵',
-                  'Mohon ditunggu sebentar ya kak 🙏',
+                  'Pesanan sedang disiapkan di dapur',
+                  'Kurir kami sedang menuju lokasi',
+                  'Mohon ditunggu sebentar ya kak',
               ];
 
     // The core chat window content

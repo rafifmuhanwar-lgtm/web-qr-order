@@ -205,7 +205,7 @@ export async function downloadReceiptPNG(order, storeName, orderId, storeAddress
         y += LINE_H;
 
         if (item.notes) {
-            text(`  📝 ${item.notes}`, PAD, y, { font: 'italic 10px sans-serif', color: '#b45309' });
+            text(`  Catatan: ${item.notes}`, PAD, y, { font: 'italic 10px sans-serif', color: '#b45309' });
             y += 18;
         }
     });

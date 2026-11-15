@@ -159,7 +159,7 @@ export default function MasterPortalPage() {
                 toast.success(res.message, { id: toastId });
                 fetchAllData();
             } else {
-                toast(res.message, { id: toastId, icon: 'ℹ️' });
+                toast(res.message, { id: toastId });
             }
         } catch (err) {
             toast.error(err.message || 'Gagal simulasi', { id: toastId });

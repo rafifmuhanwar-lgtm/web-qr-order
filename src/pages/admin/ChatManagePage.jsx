@@ -210,11 +210,11 @@ export default function ChatManagePage() {
     }, [threads, search]);
 
     const quickTemplates = [
-        'Pesanan sedang disiapkan di dapur 👨‍🍳',
-        'Kurir kami sudah jalan mengantar 🛵',
-        'Siap kak, catatan sudah kami terima 👍',
-        'Mohon ditunggu sebentar ya kak 🙏',
-        'Ada yang bisa kami bantu lagi? 😊',
+        'Pesanan sedang disiapkan di dapur',
+        'Kurir kami sudah jalan mengantar',
+        'Siap kak, catatan sudah kami terima',
+        'Mohon ditunggu sebentar ya kak',
+        'Ada yang bisa kami bantu lagi?',
     ];
 
     if (loading) {

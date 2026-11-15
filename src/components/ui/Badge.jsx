@@ -12,8 +12,8 @@ const statusStyles = {
 const statusLabels = {
     pending: 'Menunggu',
     processing: 'Diproses',
-    on_delivery: 'Sedang Diantar 🛵',
-    ready: 'Siap Diambil 🛍️',
+    on_delivery: 'Sedang Diantar',
+    ready: 'Siap Diambil',
     completed: 'Selesai',
     available: 'Tersedia',
     unavailable: 'Habis',

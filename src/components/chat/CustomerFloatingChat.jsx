@@ -339,10 +339,10 @@ export default function CustomerFloatingChat() {
     };
 
     const quickTemplates = [
-        'Pesanan sudah sampai mana kak? 🛵',
-        'Jangan lupa sendok garpu ya kak 🙏',
-        'Resto buka sampai jam berapa? ⏰',
-        'Bisa tolong cek pesanan saya? 👨‍🍳',
+        'Pesanan sudah sampai mana kak?',
+        'Jangan lupa sendok garpu ya kak',
+        'Resto buka sampai jam berapa?',
+        'Bisa tolong cek pesanan saya?',
     ];
 
     return (

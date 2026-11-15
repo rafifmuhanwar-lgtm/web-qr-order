@@ -139,7 +139,7 @@ export default function MenuPage() {
                         <p className="text-white/80 text-sm">Meja #{String(tableId).padStart(3, '0')}</p>
                     ) : (
                         <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 mt-1 rounded-full bg-white/20 text-white text-xs font-semibold backdrop-blur-xs">
-                            <span>🛍️ Pesan Online / Dari Rumah</span>
+                            <span>Pesan Online / Dari Rumah</span>
                         </div>
                     )}
                     {welcomeMessage && (
