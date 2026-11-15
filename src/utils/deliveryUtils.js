@@ -126,11 +126,3 @@ export function buildGoogleMapsRouteUrl(lat, lng) {
     return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
 }
 
-export function buildWhatsAppChatUrl(phone, message) {
-    if (!phone) return null;
-    let clean = phone.replace(/[^0-9]/g, '');
-    if (clean.startsWith('0')) clean = '62' + clean.slice(1);
-    if (!clean.startsWith('62')) clean = '62' + clean;
-    return `https://wa.me/${clean}?text=${encodeURIComponent(message)}`;
-}
-

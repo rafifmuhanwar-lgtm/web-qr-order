@@ -259,19 +259,6 @@ export const updateOrderPayment = async (orderId, paymentData) => {
     broadcastOrderChange({ orderId, paymentStatus: 'paid' });
 };
 
-export const getOrdersByDateRange = async (storeId, startDate, endDate) => {
-    const { data, error } = await supabase
-        .from(COLLECTION)
-        .select('*')
-        .eq('storeId', storeId)
-        .gte('createdAt', startDate.toISOString())
-        .lte('createdAt', endDate.toISOString())
-        .order('createdAt', { ascending: false });
-
-    if (error) throw error;
-    return data;
-};
-
 export const exportOrdersToCSV = (orders) => {
     const headers = ['Order ID', 'Meja', 'Items', 'Total', 'Status', 'Tanggal'];
     const rows = orders.map((order) => [
@@ -293,18 +280,3 @@ export const exportOrdersToCSV = (orders) => {
     URL.revokeObjectURL(url);
 };
 
-export const getOrdersByMonth = async (storeId, year, month) => {
-    const start = new Date(year, month, 1).toISOString();
-    const end = new Date(year, month + 1, 0, 23, 59, 59).toISOString();
-
-    const { data, error } = await supabase
-        .from(COLLECTION)
-        .select('*')
-        .eq('storeId', storeId)
-        .gte('createdAt', start)
-        .lte('createdAt', end)
-        .order('createdAt', { ascending: false });
-
-    if (error) throw error;
-    return data;
-};
