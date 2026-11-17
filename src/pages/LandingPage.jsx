@@ -82,7 +82,6 @@ export default function LandingPage() {
                         />
                         <div>
                             <span className="text-xl font-black tracking-tight text-[#171717]">eMakan</span>
-                            <span className="ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded bg-orange-100 text-orange-700">POS & DELIVERY</span>
                         </div>
                     </div>
 
@@ -171,11 +170,6 @@ export default function LandingPage() {
             {/* Hero Section */}
             <section className="pt-14 pb-12 px-4 sm:px-6 max-w-5xl mx-auto text-center">
                 
-                {/* Pill Tag */}
-                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-orange-50 border border-orange-200 text-orange-700 text-xs font-semibold mb-6 shadow-xs">
-                    <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
-                    <span>Dine-In QR Meja + Pesan Antar (Delivery Internal)</span>
-                </div>
 
                 {/* Headline */}
                 <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-[#171717] leading-tight mb-5">
@@ -342,7 +336,7 @@ export default function LandingPage() {
 
                                 <div className="flex items-center gap-1 text-[11px] text-neutral-500">
                                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                                    <span>Tersinkronisasi otomatis via Supabase Realtime</span>
+                                    <span>Tersinkronisasi otomatis</span>
                                 </div>
                             </div>
                         </div>
@@ -436,11 +430,11 @@ export default function LandingPage() {
                             </div>
                             <h4 className="font-bold text-sm text-[#171717] mb-1.5">Peta GPS & Ongkir Otomatis</h4>
                             <p className="text-xs text-neutral-500 leading-relaxed">
-                                Peta OpenStreetMap gratis tanpa biaya API key. Hitung jarak km presisi dengan batas jarak gratis ongkir yang bisa disetel di dashboard.
+                                Peta GPS. Hitung jarak km presisi dengan batas jarak gratis ongkir yang bisa disetel di dashboard.
                             </p>
                         </div>
                         <span className="mt-4 text-[11px] font-bold text-orange-600 flex items-center gap-1">
-                            Radius Gratis Ongkir Fleksibel →
+                            Radius Gratis Ongkir Fleksibel
                         </span>
                     </div>
 
@@ -456,7 +450,7 @@ export default function LandingPage() {
                             </p>
                         </div>
                         <span className="mt-4 text-[11px] font-bold text-emerald-600 flex items-center gap-1">
-                            Live Progress Bar Realtime →
+                            Live Progress Bar Realtime
                         </span>
                     </div>
 
@@ -466,13 +460,13 @@ export default function LandingPage() {
                             <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center mb-4">
                                 <MessageSquare className="w-5 h-5" />
                             </div>
-                            <h4 className="font-bold text-sm text-[#171717] mb-1.5">Chat Kurir & Resto</h4>
+                            <h4 className="font-bold text-sm text-[#171717] mb-1.5">Chat Pelanggan dengan Resto</h4>
                             <p className="text-xs text-neutral-500 leading-relaxed">
-                                Komunikasi dua arah langsung di dalam aplikasi antara pelanggan dan kurir/kasir tanpa perlu saling simpan nomor HP.
+                                Komunikasi dua arah langsung di dalam aplikasi antara pelanggan dengan pihak resto tanpa perlu saling simpan nomor HP.
                             </p>
                         </div>
                         <span className="mt-4 text-[11px] font-bold text-blue-600 flex items-center gap-1">
-                            Plus Shortcut WhatsApp Darurat →
+                            Tanpa harus menggunakan WhatsApp
                         </span>
                     </div>
 
@@ -488,7 +482,7 @@ export default function LandingPage() {
                             </p>
                         </div>
                         <span className="mt-4 text-[11px] font-bold text-purple-600 flex items-center gap-1">
-                            Tanpa Download Aplikasi Apapun →
+                       Tidak Perlu Download APK apapun
                         </span>
                     </div>
 
@@ -504,7 +498,7 @@ export default function LandingPage() {
                             </p>
                         </div>
                         <span className="mt-4 text-[11px] font-bold text-amber-700 flex items-center gap-1">
-                            Format Rapi Siap Cetak →
+                            Format Rapi Siap Cetak
                         </span>
                     </div>
 
@@ -520,7 +514,7 @@ export default function LandingPage() {
                             </p>
                         </div>
                         <span className="mt-4 text-[11px] font-bold text-purple-700 flex items-center gap-1">
-                            Laporan Keuangan Rapi →
+                            Laporan Keuangan Rapi dan jelas
                         </span>
                     </div>
                 </div>
@@ -549,7 +543,7 @@ export default function LandingPage() {
                     </div>
 
                     <div className="p-6 bg-white rounded-2xl border border-neutral-200/80 shadow-xs relative">
-                        <div className="w-10 h-10 rounded-xl bg-orange-600 text-white flex items-center justify-center font-bold text-sm mb-4">
+                        <div className="w-10 h-10 rounded-xl bg-orange-100 text-orange-700 flex items-center justify-center font-bold text-sm mb-4">
                             2
                         </div>
                         <h4 className="font-bold text-sm text-[#171717] mb-1.5">Pilih Menu & Titik Antar</h4>
@@ -624,9 +618,6 @@ export default function LandingPage() {
                         <span>{isAuthenticated ? 'Masuk ke Dashboard Kasir' : 'Daftar Sekarang (Sign Up)'}</span>
                         <ArrowRight className="w-4 h-4" />
                     </button>
-                    <p className="text-[11px] text-neutral-400 mt-3">
-                        Langsung aktif dalam hitungan detik • Tidak perlu konfigurasi server rumit
-                    </p>
                 </div>
             </section>
 
@@ -639,7 +630,7 @@ export default function LandingPage() {
                         <span>• Sistem Kasir, QR Meja & Delivery Online Restoran</span>
                     </div>
                     <div>
-                        © {CURRENT_YEAR} eMakan POS Platform. Semua hak dilindungi.
+                        © {CURRENT_YEAR} eMakan. Semua hak dilindungi.
                     </div>
                 </div>
             </footer>
