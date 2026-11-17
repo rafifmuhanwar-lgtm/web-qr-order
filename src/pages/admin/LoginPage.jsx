@@ -50,11 +50,12 @@ export default function LoginPage() {
                         type: 'standard',
                         shape: 'rectangular',
                         text: 'signin_with',
-                        width: googleBtnContainerRef.current.offsetWidth || 340,
+                        width: 320,
                         logo_alignment: 'left',
                     });
 
                     setGisLoaded(true);
+                    console.log("Google GIS Button successfully rendered!");
                 } catch (e) {
                     console.warn('Google GIS button render error:', e);
                 }
@@ -122,10 +123,12 @@ export default function LoginPage() {
                     {/* Google Auth Container */}
                     <div className="space-y-3">
                         {/* Tombol Resmi Google Identity Services (Direct Sign-In) */}
-                        <div
-                            ref={googleBtnContainerRef}
-                            className={`w-full flex justify-center ${gisLoaded && !googleLoading ? 'block' : 'hidden'}`}
-                        />
+                        <div className="w-full flex justify-center min-h-[44px]">
+                            <div
+                                ref={googleBtnContainerRef}
+                                className={`w-full flex justify-center ${gisLoaded && !googleLoading ? 'block' : 'hidden'}`}
+                            />
+                        </div>
 
                         {/* Fallback button jika GIS sedang loading atau diblokir */}
                         {(!gisLoaded || googleLoading) && (
