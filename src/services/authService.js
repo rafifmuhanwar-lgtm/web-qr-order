@@ -1,5 +1,18 @@
 import { supabase } from '../config/supabase';
 
+export const loginWithGoogleIdToken = async (idToken) => {
+    const { data, error } = await supabase.auth.signInWithIdToken({
+        provider: 'google',
+        token: idToken,
+    });
+
+    if (error) throw error;
+    if (data?.user) {
+        await ensureUserStore(data.user);
+    }
+    return data;
+};
+
 export const loginWithGoogle = async () => {
     const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
