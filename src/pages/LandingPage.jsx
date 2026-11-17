@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { loginWithGoogle } from '../services/authService';
 import {
     QrCode,
     Bike,
@@ -22,31 +21,16 @@ import {
     ArrowRight,
     BarChart3
 } from 'lucide-react';
-import toast from 'react-hot-toast';
 
 const CURRENT_YEAR = new Date().getFullYear();
 
 export default function LandingPage() {
     const navigate = useNavigate();
     const { isAuthenticated } = useAuth();
-    const [googleLoading, setGoogleLoading] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [openFaqIndex, setOpenFaqIndex] = useState(0);
     const [previewMode, setPreviewMode] = useState('delivery'); // 'delivery' | 'dinein'
 
-    const handleGoogleAuth = async () => {
-        if (isAuthenticated) {
-            navigate('/admin');
-            return;
-        }
-        setGoogleLoading(true);
-        try {
-            await loginWithGoogle();
-        } catch (err) {
-            toast.error(err?.message || 'Gagal login dengan Google');
-            setGoogleLoading(false);
-        }
-    };
 
     const faqs = [
         {
@@ -115,23 +99,18 @@ export default function LandingPage() {
                         {isAuthenticated ? (
                             <button
                                 onClick={() => navigate('/admin')}
-                                className="px-4 py-2 bg-[#171717] hover:bg-black text-white text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-sm"
+                                className="px-4 py-2 bg-[#171717] hover:bg-black text-white text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-sm flex items-center gap-1.5"
                             >
-                                Buka Dashboard Kasir →
+                                <span>Buka Dashboard Kasir</span>
+                                <ArrowRight className="w-3.5 h-3.5" />
                             </button>
                         ) : (
                             <button
-                                onClick={handleGoogleAuth}
-                                disabled={googleLoading}
-                                className="flex items-center gap-2 px-3.5 py-2 bg-white hover:bg-neutral-50 border border-neutral-200 text-neutral-800 text-xs font-semibold rounded-xl shadow-xs transition-all cursor-pointer disabled:opacity-50"
+                                onClick={() => navigate('/admin/login')}
+                                className="flex items-center gap-1.5 px-4 py-2 bg-[#171717] hover:bg-black text-white text-xs font-semibold rounded-xl shadow-sm transition-all cursor-pointer active:scale-95"
                             >
-                                <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
-                                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-                                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-                                </svg>
-                                <span>{googleLoading ? 'Memproses...' : 'Masuk via Google'}</span>
+                                <span>Masuk / Daftar</span>
+                                <ArrowRight className="w-3.5 h-3.5" />
                             </button>
                         )}
                     </div>
@@ -178,10 +157,11 @@ export default function LandingPage() {
                         </a>
                         <div className="pt-2">
                             <button
-                                onClick={() => { setMobileMenuOpen(false); handleGoogleAuth(); }}
-                                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#171717] text-white text-xs font-semibold rounded-xl"
+                                onClick={() => { setMobileMenuOpen(false); navigate(isAuthenticated ? '/admin' : '/admin/login'); }}
+                                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#171717] text-white text-xs font-semibold rounded-xl cursor-pointer"
                             >
-                                <span>{isAuthenticated ? 'Buka Dashboard' : 'Masuk dengan Google'}</span>
+                                <span>{isAuthenticated ? 'Buka Dashboard' : 'Masuk / Daftar (Sign In)'}</span>
+                                <ArrowRight className="w-3.5 h-3.5" />
                             </button>
                         </div>
                     </div>
@@ -213,17 +193,11 @@ export default function LandingPage() {
                 {/* Main Action Box */}
                 <div className="max-w-md mx-auto mb-12 flex flex-col sm:flex-row items-center justify-center gap-3">
                     <button
-                        onClick={handleGoogleAuth}
-                        disabled={googleLoading}
-                        className="w-full sm:w-auto flex-1 flex items-center justify-center gap-3 px-6 py-3.5 bg-[#171717] hover:bg-black text-white text-sm font-semibold rounded-2xl shadow-lg shadow-neutral-900/15 transition-all active:scale-95 cursor-pointer disabled:opacity-50"
+                        onClick={() => navigate(isAuthenticated ? '/admin' : '/admin/login')}
+                        className="w-full sm:w-auto flex-1 flex items-center justify-center gap-2.5 px-6 py-3.5 bg-orange-600 hover:bg-orange-700 text-white text-sm font-bold rounded-2xl shadow-lg shadow-orange-600/25 transition-all active:scale-95 cursor-pointer"
                     >
-                        <svg className="w-5 h-5 bg-white rounded-full p-0.5 shrink-0" viewBox="0 0 24 24">
-                            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-                            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-                        </svg>
-                        <span>{isAuthenticated ? 'Masuk ke Dashboard' : 'Mulai Sekarang Gratis'}</span>
+                        <span>{isAuthenticated ? 'Buka Dashboard Kasir' : 'Mulai Sekarang Gratis'}</span>
+                        <ArrowRight className="w-4 h-4" />
                     </button>
                     <a
                         href="#demo"
@@ -644,17 +618,11 @@ export default function LandingPage() {
                         Gabungkan kemudahan Dine-In QR Meja dan Pesan Antar Online dalam satu sistem kasir modern tanpa biaya komisi pihak ketiga.
                     </p>
                     <button
-                        onClick={handleGoogleAuth}
-                        disabled={googleLoading}
-                        className="inline-flex items-center gap-3 px-7 py-3.5 bg-white hover:bg-neutral-100 text-[#171717] text-xs sm:text-sm font-bold rounded-2xl shadow-md transition-transform active:scale-95 cursor-pointer disabled:opacity-50"
+                        onClick={() => navigate(isAuthenticated ? '/admin' : '/admin/login')}
+                        className="inline-flex items-center gap-2.5 px-8 py-3.5 bg-orange-600 hover:bg-orange-500 text-white text-xs sm:text-sm font-bold rounded-2xl shadow-lg shadow-orange-600/30 transition-all active:scale-95 cursor-pointer"
                     >
-                        <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
-                            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-                            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-                        </svg>
-                        <span>Daftar Cepat dengan Akun Google</span>
+                        <span>{isAuthenticated ? 'Masuk ke Dashboard Kasir' : 'Daftar Sekarang (Sign Up)'}</span>
+                        <ArrowRight className="w-4 h-4" />
                     </button>
                     <p className="text-[11px] text-neutral-400 mt-3">
                         Langsung aktif dalam hitungan detik • Tidak perlu konfigurasi server rumit
