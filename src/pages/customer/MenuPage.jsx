@@ -249,45 +249,61 @@ export default function MenuPage() {
 
                 {/* MODE 1: SHOWCASE BANNER KATEGORI (Mengikuti Desain Foto 2) */}
                 {isShowingCategoryShowcase ? (
-                    <div className="px-4 space-y-3 mb-6">
+                    <div className="px-4 space-y-3.5 mb-6">
                         <div className="flex items-center justify-between pb-1">
                             <h2 className="text-sm font-bold text-neutral-800">Kategori Menu</h2>
                             <span className="text-xs text-neutral-400">{categories.length} Kategori</span>
                         </div>
 
-                        {categories.map((cat) => {
+                        {categories.map((cat, idx) => {
                             const catMenus = getCategoryMenus(cat.id);
                             const catImage = getCategoryImageUrl(cat.id);
+
+                            // Palet gradien lembut hangat bernuansa kuliner
+                            const gradients = [
+                                'from-orange-500/10 via-amber-500/5 to-white',
+                                'from-amber-500/10 via-orange-500/5 to-white',
+                                'from-rose-500/10 via-orange-500/5 to-white',
+                                'from-orange-600/10 via-yellow-500/5 to-white',
+                            ];
+                            const bgGradient = gradients[idx % gradients.length];
 
                             return (
                                 <div
                                     key={cat.id}
                                     onClick={() => setActiveCategory(cat.id)}
-                                    className="group relative overflow-hidden rounded-2xl bg-white border border-neutral-200/90 hover:border-primary/50 p-4 sm:p-5 shadow-xs hover:shadow-md transition-all cursor-pointer flex items-center justify-between gap-4 active:scale-[0.99]"
+                                    className={`group relative overflow-hidden rounded-3xl bg-gradient-to-r ${bgGradient} border border-neutral-200/90 hover:border-primary/50 shadow-xs hover:shadow-lg transition-all duration-300 cursor-pointer min-h-[120px] sm:min-h-[135px] flex items-center justify-between active:scale-[0.99]`}
                                 >
-                                    <div className="flex-1 min-w-0 pr-1">
-                                        <h3 className="text-base sm:text-lg font-bold text-neutral-900 group-hover:text-primary transition-colors truncate">
-                                            {cat.name}
-                                        </h3>
-                                        <p className="text-xs text-neutral-500 mt-1 font-medium">
-                                            {catMenus.length} Pilihan Menu
-                                        </p>
-                                        <div className="mt-3 inline-flex items-center gap-1 text-[11px] font-bold text-primary group-hover:translate-x-0.5 transition-transform">
-                                            <span>Lihat Menu</span>
-                                            <ChevronRight className="w-3.5 h-3.5" />
+                                    {/* Sisi Kiri: Judul, Subtitle & Tombol Aksi */}
+                                    <div className="w-3/5 sm:w-2/3 p-5 sm:p-6 z-10 relative flex flex-col justify-between h-full">
+                                        <div>
+                                            <h3 className="text-lg sm:text-xl font-black text-neutral-900 group-hover:text-primary transition-colors tracking-tight line-clamp-1">
+                                                {cat.name}
+                                            </h3>
+                                            <p className="text-xs text-neutral-500 mt-1 font-medium">
+                                                {catMenus.length} Pilihan Menu
+                                            </p>
+                                        </div>
+
+                                        <div className="mt-3.5 sm:mt-4">
+                                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/95 border border-neutral-200/80 text-[11px] font-bold text-neutral-800 shadow-2xs group-hover:bg-primary group-hover:text-white group-hover:border-primary transition-all">
+                                                <span>Pilih Menu</span>
+                                                <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                                            </span>
                                         </div>
                                     </div>
 
-                                    <div className="w-20 h-20 sm:w-24 sm:h-24 shrink-0 rounded-2xl overflow-hidden bg-orange-50 border border-neutral-100 shadow-xs relative">
+                                    {/* Sisi Kanan: Foto Makanan Frameless / Cutout Bleeding ke Tepi (Gaya Foto 2) */}
+                                    <div className="absolute -right-3 -bottom-3 sm:-right-4 sm:-bottom-4 w-32 h-32 sm:w-40 sm:h-40 rounded-full sm:rounded-3xl overflow-hidden shadow-xl group-hover:scale-105 group-hover:-rotate-2 transition-all duration-300 pointer-events-none bg-orange-100/50">
                                         {catImage ? (
                                             <img
                                                 src={catImage}
                                                 alt={cat.name}
-                                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                                className="w-full h-full object-cover"
                                             />
                                         ) : (
-                                            <div className="w-full h-full flex items-center justify-center text-orange-400">
-                                                <ChefHat className="w-8 h-8" />
+                                            <div className="w-full h-full flex items-center justify-center text-orange-400 bg-orange-50">
+                                                <ChefHat className="w-10 h-10" />
                                             </div>
                                         )}
                                     </div>
@@ -298,27 +314,28 @@ export default function MenuPage() {
                 ) : (
                     /* MODE 2 / FILTER CATEGORY: DAFTAR MENU GRID */
                     <div>
-                        {/* Banner Header Kategori Aktif */}
+                        {/* Banner Header Kategori Aktif (Frameless Gaya Foto 2) */}
                         {isBannerMode && activeCategoryData && search.trim() === '' && (
-                            <div className="px-4 mb-4">
-                                <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-orange-500 to-amber-600 text-white p-4.5 sm:p-5 shadow-sm flex items-center justify-between gap-4">
-                                    <div className="flex-1 min-w-0">
+                            <div className="px-4 mb-5">
+                                <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-orange-500 to-amber-600 text-white p-5 sm:p-6 shadow-md min-h-[120px] flex items-center justify-between">
+                                    <div className="w-3/5 sm:w-2/3 z-10 relative">
                                         <button
                                             onClick={() => setActiveCategory('all')}
-                                            className="inline-flex items-center gap-1 text-xs font-semibold text-white/90 hover:text-white mb-2 cursor-pointer bg-white/15 hover:bg-white/20 px-2.5 py-1 rounded-full backdrop-blur-xs transition-colors"
+                                            className="inline-flex items-center gap-1.5 text-xs font-semibold text-white/95 hover:text-white mb-2 cursor-pointer bg-white/20 hover:bg-white/30 px-3 py-1 rounded-full backdrop-blur-xs transition-colors"
                                         >
                                             <ArrowLeft className="w-3.5 h-3.5" />
                                             <span>Semua Kategori</span>
                                         </button>
-                                        <h2 className="text-lg sm:text-xl font-bold tracking-tight truncate">
+                                        <h2 className="text-xl sm:text-2xl font-black tracking-tight truncate">
                                             {activeCategoryData.name}
                                         </h2>
-                                        <p className="text-xs text-white/80 mt-0.5">
+                                        <p className="text-xs text-white/85 mt-0.5">
                                             {filteredMenus.length} Menu Tersedia
                                         </p>
                                     </div>
 
-                                    <div className="w-18 h-18 sm:w-20 sm:h-20 shrink-0 rounded-xl overflow-hidden bg-white/20 border border-white/30 shadow-xs">
+                                    {/* Foto Makanan Frameless */}
+                                    <div className="absolute -right-4 -bottom-4 w-32 h-32 sm:w-36 sm:h-36 rounded-full overflow-hidden shadow-xl border-4 border-white/20 bg-white/20 pointer-events-none">
                                         {getCategoryImageUrl(activeCategoryData.id) ? (
                                             <img
                                                 src={getCategoryImageUrl(activeCategoryData.id)}
@@ -327,7 +344,7 @@ export default function MenuPage() {
                                             />
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center text-white/80">
-                                                <ChefHat className="w-7 h-7" />
+                                                <ChefHat className="w-10 h-10" />
                                             </div>
                                         )}
                                     </div>
