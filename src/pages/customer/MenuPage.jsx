@@ -21,8 +21,6 @@ export default function MenuPage() {
         const saved = sessionStorage.getItem(cartKey);
         return saved ? JSON.parse(saved) : [];
     });
-    const [noteModal, setNoteModal] = useState(null);
-    const [noteText, setNoteText] = useState('');
     const [storeName, setStoreName] = useState('');
     const [logoUrl, setLogoUrl] = useState('');
     const [welcomeMessage, setWelcomeMessage] = useState('');
@@ -125,7 +123,7 @@ export default function MenuPage() {
                 },
             ];
         });
-        toast.success(`${detailModalMenu.name} (${detailQty}x) dimasukkan ke keranjang`);
+        toast.success(`${detailModalMenu.name} (${detailQty}x) berhasil ditambahkan`);
         setDetailModalMenu(null);
     };
 
@@ -134,16 +132,6 @@ export default function MenuPage() {
         const cat = categories.find((c) => c.id === detailModalMenu.categoryId);
         return cat ? cat.name : '';
     }, [detailModalMenu, categories]);
-
-    const saveNote = () => {
-        if (noteModal) {
-            setCart((prev) =>
-                prev.map((i) => (i.id === noteModal ? { ...i, notes: noteText } : i))
-            );
-            setNoteModal(null);
-            setNoteText('');
-        }
-    };
 
     const goToCart = () => {
         const cartPath = tableId ? `/order/${storeId}/${tableId}/cart` : `/order/${storeId}/cart`;
@@ -218,34 +206,36 @@ export default function MenuPage() {
                     </div>
                 </div>
 
-                {/* Category Pills (Navigasi Cepat Horizontal) */}
-                <div className="px-4 mb-4 overflow-x-auto">
-                    <div className="flex gap-2 pb-2">
-                        <button
-                            onClick={() => setActiveCategory('all')}
-                            className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all cursor-pointer ${
-                                activeCategory === 'all'
-                                    ? 'bg-primary text-white shadow-lg shadow-primary/30'
-                                    : 'bg-white text-slate-600 border border-border hover:border-primary/30'
-                            }`}
-                        >
-                            Semua
-                        </button>
-                        {categories.map((cat) => (
+                {/* Category Pills (Hanya tampil jika BUKAN mode banner / saat Mode Grid Standar) */}
+                {!isBannerMode && (
+                    <div className="px-4 mb-4 overflow-x-auto">
+                        <div className="flex gap-2 pb-2">
                             <button
-                                key={cat.id}
-                                onClick={() => setActiveCategory(cat.id)}
+                                onClick={() => setActiveCategory('all')}
                                 className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all cursor-pointer ${
-                                    activeCategory === cat.id
+                                    activeCategory === 'all'
                                         ? 'bg-primary text-white shadow-lg shadow-primary/30'
                                         : 'bg-white text-slate-600 border border-border hover:border-primary/30'
                                 }`}
                             >
-                                {cat.name}
+                                Semua
                             </button>
-                        ))}
+                            {categories.map((cat) => (
+                                <button
+                                    key={cat.id}
+                                    onClick={() => setActiveCategory(cat.id)}
+                                    className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all cursor-pointer ${
+                                        activeCategory === cat.id
+                                            ? 'bg-primary text-white shadow-lg shadow-primary/30'
+                                            : 'bg-white text-slate-600 border border-border hover:border-primary/30'
+                                    }`}
+                                >
+                                    {cat.name}
+                                </button>
+                            ))}
+                        </div>
                     </div>
-                </div>
+                )}
 
                 {/* MODE 1: SHOWCASE BANNER KATEGORI (Mengikuti Desain Foto 2) */}
                 {isShowingCategoryShowcase ? (
@@ -418,17 +408,6 @@ export default function MenuPage() {
                                                     >
                                                         <Plus className="w-3.5 h-3.5" />
                                                     </button>
-                                                    <button
-                                                        onClick={() => {
-                                                            setNoteModal(menu.id);
-                                                            setNoteText(cartItem.notes || '');
-                                                        }}
-                                                        className={`w-8 h-8 rounded-lg flex items-center justify-center cursor-pointer ${
-                                                            cartItem.notes ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
-                                                        }`}
-                                                    >
-                                                        <StickyNote className="w-3.5 h-3.5" />
-                                                    </button>
                                                 </div>
                                             ) : (
                                                 <button
@@ -591,39 +570,9 @@ export default function MenuPage() {
                                 className="flex-1 py-3 px-4 rounded-2xl bg-primary hover:bg-primary-dark text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-primary/30 transition-all active:scale-98 cursor-pointer"
                             >
                                 <ShoppingCart className="w-4 h-4 shrink-0" />
-                                <span>Tambah ke Keranjang</span>
+                                <span>Pesan</span>
                                 <span className="opacity-70">•</span>
                                 <span>{formatPrice(detailModalMenu.price * detailQty)}</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Quick Note Modal (dari Grid jika item sudah ada di keranjang) */}
-            {noteModal && (
-                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/50" onClick={() => setNoteModal(null)} />
-                    <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-5">
-                        <h3 className="font-bold text-secondary mb-3">Catatan Pesanan</h3>
-                        <textarea
-                            value={noteText}
-                            onChange={(e) => setNoteText(e.target.value)}
-                            placeholder="Contoh: less sugar, no ice..."
-                            className="w-full p-3 rounded-xl border border-border text-sm resize-none h-24 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
-                        />
-                        <div className="flex gap-2 mt-3">
-                            <button
-                                onClick={() => setNoteModal(null)}
-                                className="flex-1 py-2.5 rounded-xl border border-border text-slate-600 text-sm font-medium hover:bg-slate-50 cursor-pointer"
-                            >
-                                Batal
-                            </button>
-                            <button
-                                onClick={saveNote}
-                                className="flex-1 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary-dark cursor-pointer"
-                            >
-                                Simpan
                             </button>
                         </div>
                     </div>
