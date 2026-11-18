@@ -29,6 +29,11 @@ export default function MenuPage() {
     const [menuLayout, setMenuLayout] = useState('banner');
     const [categoryBanners, setCategoryBanners] = useState({});
 
+    // State untuk Food Detail Modal (Foto 1)
+    const [detailModalMenu, setDetailModalMenu] = useState(null);
+    const [detailQty, setDetailQty] = useState(1);
+    const [detailNotes, setDetailNotes] = useState('');
+
     useEffect(() => {
         const fetchData = async () => {
             try {
@@ -78,19 +83,6 @@ export default function MenuPage() {
         return cart.reduce((sum, item) => sum + item.quantity, 0);
     }, [cart]);
 
-    const addToCart = (menu) => {
-        setCart((prev) => {
-            const existing = prev.find((i) => i.id === menu.id);
-            if (existing) {
-                return prev.map((i) =>
-                    i.id === menu.id ? { ...i, quantity: i.quantity + 1 } : i
-                );
-            }
-            return [...prev, { id: menu.id, name: menu.name, price: menu.price, quantity: 1, notes: '', imageUrl: menu.imageUrl }];
-        });
-        toast.success(`${menu.name} ditambahkan`);
-    };
-
     const updateQuantity = (id, delta) => {
         setCart((prev) => {
             return prev
@@ -100,6 +92,48 @@ export default function MenuPage() {
     };
 
     const getCartItem = (id) => cart.find((i) => i.id === id);
+
+    // Buka Modal Detail Makanan (Foto 1)
+    const openDetailModal = (menu) => {
+        const cartItem = getCartItem(menu.id);
+        setDetailModalMenu(menu);
+        setDetailQty(cartItem ? cartItem.quantity : 1);
+        setDetailNotes(cartItem?.notes || '');
+    };
+
+    // Handler Tambah ke Keranjang dari Modal Detail Makanan
+    const handleDetailAddToCart = () => {
+        if (!detailModalMenu) return;
+        setCart((prev) => {
+            const existing = prev.find((i) => i.id === detailModalMenu.id);
+            if (existing) {
+                return prev.map((i) =>
+                    i.id === detailModalMenu.id
+                        ? { ...i, quantity: detailQty, notes: detailNotes }
+                        : i
+                );
+            }
+            return [
+                ...prev,
+                {
+                    id: detailModalMenu.id,
+                    name: detailModalMenu.name,
+                    price: detailModalMenu.price,
+                    quantity: detailQty,
+                    notes: detailNotes,
+                    imageUrl: detailModalMenu.imageUrl,
+                },
+            ];
+        });
+        toast.success(`${detailModalMenu.name} (${detailQty}x) dimasukkan ke keranjang`);
+        setDetailModalMenu(null);
+    };
+
+    const detailCategoryName = useMemo(() => {
+        if (!detailModalMenu?.categoryId) return '';
+        const cat = categories.find((c) => c.id === detailModalMenu.categoryId);
+        return cat ? cat.name : '';
+    }, [detailModalMenu, categories]);
 
     const saveNote = () => {
         if (noteModal) {
@@ -124,7 +158,6 @@ export default function MenuPage() {
         }).format(price);
     };
 
-    // Helper: Mendapatkan gambar banner kategori (dari setting toko atau fallback ke foto menu pertama di kategori itu)
     const getCategoryImageUrl = (catId) => {
         if (categoryBanners && categoryBanners[catId]) {
             return categoryBanners[catId];
@@ -133,7 +166,6 @@ export default function MenuPage() {
         return menuWithImage ? menuWithImage.imageUrl : null;
     };
 
-    // Helper: Mendapatkan menu di dalam kategori tertentu
     const getCategoryMenus = (catId) => {
         return menus.filter((m) => m.categoryId === catId && m.isAvailable !== false);
     };
@@ -144,7 +176,6 @@ export default function MenuPage() {
 
     if (loading) return <Spinner text="Memuat menu..." />;
 
-    // Cek apakah sedang menampilkan mode showcase banner kategori (Foto 2)
     const isBannerMode = menuLayout === 'banner';
     const isShowingCategoryShowcase = isBannerMode && activeCategory === 'all' && search.trim() === '' && categories.length > 0;
 
@@ -234,7 +265,6 @@ export default function MenuPage() {
                                     onClick={() => setActiveCategory(cat.id)}
                                     className="group relative overflow-hidden rounded-2xl bg-white border border-neutral-200/90 hover:border-primary/50 p-4 sm:p-5 shadow-xs hover:shadow-md transition-all cursor-pointer flex items-center justify-between gap-4 active:scale-[0.99]"
                                 >
-                                    {/* Sisi Kiri: Judul, Subtitle & Tombol Aksi */}
                                     <div className="flex-1 min-w-0 pr-1">
                                         <h3 className="text-base sm:text-lg font-bold text-neutral-900 group-hover:text-primary transition-colors truncate">
                                             {cat.name}
@@ -248,7 +278,6 @@ export default function MenuPage() {
                                         </div>
                                     </div>
 
-                                    {/* Sisi Kanan: Foto Makanan Visual */}
                                     <div className="w-20 h-20 sm:w-24 sm:h-24 shrink-0 rounded-2xl overflow-hidden bg-orange-50 border border-neutral-100 shadow-xs relative">
                                         {catImage ? (
                                             <img
@@ -269,7 +298,7 @@ export default function MenuPage() {
                 ) : (
                     /* MODE 2 / FILTER CATEGORY: DAFTAR MENU GRID */
                     <div>
-                        {/* Banner Header Kategori Aktif (Jika Mode Banner aktif dan sedang melihat kategori tertentu) */}
+                        {/* Banner Header Kategori Aktif */}
                         {isBannerMode && activeCategoryData && search.trim() === '' && (
                             <div className="px-4 mb-4">
                                 <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-orange-500 to-amber-600 text-white p-4.5 sm:p-5 shadow-sm flex items-center justify-between gap-4">
@@ -289,7 +318,6 @@ export default function MenuPage() {
                                         </p>
                                     </div>
 
-                                    {/* Foto Makanan Kategori */}
                                     <div className="w-18 h-18 sm:w-20 sm:h-20 shrink-0 rounded-xl overflow-hidden bg-white/20 border border-white/30 shadow-xs">
                                         {getCategoryImageUrl(activeCategoryData.id) ? (
                                             <img
@@ -307,69 +335,92 @@ export default function MenuPage() {
                             </div>
                         )}
 
-                        {/* Menu Grid (2 Kolom Standar eMakan) */}
+                        {/* Menu Grid (2 Kolom) */}
                         <div className="px-4 grid grid-cols-2 gap-3">
                             {filteredMenus.map((menu) => {
                                 const cartItem = getCartItem(menu.id);
                                 return (
-                                    <div key={menu.id} className="bg-white rounded-2xl shadow-sm border border-border overflow-hidden hover:shadow-md transition-shadow">
-                                        <div className="aspect-square bg-slate-100 relative overflow-hidden">
-                                            {menu.imageUrl ? (
-                                                <img src={menu.imageUrl} alt={menu.name} className="w-full h-full object-cover" />
-                                            ) : (
-                                                <div className="w-full h-full flex items-center justify-center">
-                                                    <ChefHat className="w-10 h-10 text-slate-300" />
-                                                </div>
-                                            )}
-                                            {cartItem && (
-                                                <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center shadow-lg">
-                                                    {cartItem.quantity}
-                                                </div>
-                                            )}
-                                        </div>
-                                        <div className="p-3">
-                                            <h3 className="font-semibold text-sm text-secondary truncate">{menu.name}</h3>
-                                            <p className="text-primary font-bold text-sm mt-1">{formatPrice(menu.price)}</p>
-                                            {menu.description && (
-                                                <p className="text-slate-400 text-xs mt-1 line-clamp-2">{menu.description}</p>
-                                            )}
-                                            <div className="mt-3 flex items-center gap-2">
-                                                {cartItem ? (
-                                                    <div className="flex items-center gap-2 w-full">
-                                                        <button
-                                                            onClick={() => updateQuantity(menu.id, -1)}
-                                                            className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center hover:bg-slate-200 cursor-pointer"
-                                                        >
-                                                            <Minus className="w-3.5 h-3.5" />
-                                                        </button>
-                                                        <span className="flex-1 text-center font-semibold text-sm">{cartItem.quantity}</span>
-                                                        <button
-                                                            onClick={() => updateQuantity(menu.id, 1)}
-                                                            className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center hover:bg-primary/20 cursor-pointer"
-                                                        >
-                                                            <Plus className="w-3.5 h-3.5" />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => {
-                                                                setNoteModal(menu.id);
-                                                                setNoteText(cartItem.notes || '');
-                                                            }}
-                                                            className={`w-8 h-8 rounded-lg flex items-center justify-center cursor-pointer ${
-                                                                cartItem.notes ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
-                                                            }`}
-                                                        >
-                                                            <StickyNote className="w-3.5 h-3.5" />
-                                                        </button>
-                                                    </div>
+                                    <div
+                                        key={menu.id}
+                                        className="bg-white rounded-2xl shadow-sm border border-border overflow-hidden hover:shadow-md transition-all flex flex-col justify-between"
+                                    >
+                                        {/* Area Foto & Info yang Dapat Diklik untuk Buka Detail (Foto 1) */}
+                                        <div
+                                            onClick={() => openDetailModal(menu)}
+                                            className="cursor-pointer group"
+                                        >
+                                            <div className="aspect-square bg-slate-100 relative overflow-hidden">
+                                                {menu.imageUrl ? (
+                                                    <img
+                                                        src={menu.imageUrl}
+                                                        alt={menu.name}
+                                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                                    />
                                                 ) : (
-                                                    <button
-                                                        onClick={() => addToCart(menu)}
-                                                        className="w-full py-2 rounded-xl bg-primary/10 text-primary text-sm font-semibold hover:bg-primary hover:text-white transition-all cursor-pointer"
-                                                    >
-                                                        + Tambah
-                                                    </button>
+                                                    <div className="w-full h-full flex items-center justify-center">
+                                                        <ChefHat className="w-10 h-10 text-slate-300" />
+                                                    </div>
+                                                )}
+                                                {cartItem && (
+                                                    <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center shadow-lg">
+                                                        {cartItem.quantity}
+                                                    </div>
                                                 )}
                                             </div>
+                                            <div className="p-3 pb-1">
+                                                <h3 className="font-bold text-sm text-secondary truncate group-hover:text-primary transition-colors">
+                                                    {menu.name}
+                                                </h3>
+                                                <p className="text-primary font-black text-sm mt-0.5">
+                                                    {formatPrice(menu.price)}
+                                                </p>
+                                                {menu.description && (
+                                                    <p className="text-slate-400 text-xs mt-1 line-clamp-2">
+                                                        {menu.description}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Aksi Tambah / Stepper Cepat */}
+                                        <div className="p-3 pt-2">
+                                            {cartItem ? (
+                                                <div className="flex items-center gap-1.5 w-full">
+                                                    <button
+                                                        onClick={() => updateQuantity(menu.id, -1)}
+                                                        className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center hover:bg-slate-200 cursor-pointer active:scale-95"
+                                                    >
+                                                        <Minus className="w-3.5 h-3.5" />
+                                                    </button>
+                                                    <span className="flex-1 text-center font-bold text-sm">
+                                                        {cartItem.quantity}
+                                                    </span>
+                                                    <button
+                                                        onClick={() => updateQuantity(menu.id, 1)}
+                                                        className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center hover:bg-primary/20 cursor-pointer active:scale-95"
+                                                    >
+                                                        <Plus className="w-3.5 h-3.5" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            setNoteModal(menu.id);
+                                                            setNoteText(cartItem.notes || '');
+                                                        }}
+                                                        className={`w-8 h-8 rounded-lg flex items-center justify-center cursor-pointer ${
+                                                            cartItem.notes ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
+                                                        }`}
+                                                    >
+                                                        <StickyNote className="w-3.5 h-3.5" />
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    onClick={() => openDetailModal(menu)}
+                                                    className="w-full py-2 rounded-xl bg-primary/10 text-primary text-xs font-bold hover:bg-primary hover:text-white transition-all cursor-pointer active:scale-98"
+                                                >
+                                                    + Tambah
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                 );
@@ -386,7 +437,153 @@ export default function MenuPage() {
                 )}
             </div>
 
-            {/* Note Modal */}
+            {/* FOOD DETAIL MODAL / BOTTOM SHEET (Mengikuti Desain Foto 1) */}
+            {detailModalMenu && (
+                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+                    {/* Backdrop */}
+                    <div
+                        className="absolute inset-0 bg-black/60 backdrop-blur-xs transition-opacity"
+                        onClick={() => setDetailModalMenu(null)}
+                    />
+
+                    {/* Modal Dialog Card */}
+                    <div className="relative bg-white w-full max-w-sm sm:max-w-md rounded-t-[32px] sm:rounded-3xl overflow-hidden shadow-2xl max-h-[92vh] flex flex-col z-10 animate-fade-in">
+                        {/* Top Curved Wave Header */}
+                        <div className="relative w-full bg-gradient-to-br from-primary to-primary-dark pt-4 pb-12 px-4 overflow-hidden shrink-0">
+                            {/* Top Close / Back Button */}
+                            <div className="flex items-center justify-between relative z-20">
+                                <button
+                                    onClick={() => setDetailModalMenu(null)}
+                                    className="w-9 h-9 rounded-full bg-black/25 hover:bg-black/35 text-white flex items-center justify-center transition-colors cursor-pointer"
+                                    title="Tutup"
+                                >
+                                    <ArrowLeft className="w-4 h-4" />
+                                </button>
+                                {detailCategoryName && (
+                                    <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-white/20 text-white backdrop-blur-xs">
+                                        {detailCategoryName}
+                                    </span>
+                                )}
+                            </div>
+
+                            {/* Floating Circular Dish Plate (Piring Makanan Melayang di Tengah) */}
+                            <div className="flex justify-center -mb-20 mt-2 z-20 relative">
+                                <div className="w-44 h-44 sm:w-52 sm:h-52 rounded-full overflow-hidden border-4 border-white shadow-2xl bg-white relative">
+                                    {detailModalMenu.imageUrl ? (
+                                        <img
+                                            src={detailModalMenu.imageUrl}
+                                            alt={detailModalMenu.name}
+                                            className="w-full h-full object-cover"
+                                        />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center bg-orange-50 text-orange-400">
+                                            <ChefHat className="w-16 h-16" />
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Wave Curve Shape (Sesuai Desain Foto 1) */}
+                            <div className="absolute bottom-0 left-0 right-0 overflow-hidden leading-none pointer-events-none z-10">
+                                <svg
+                                    className="w-full h-12 text-white fill-current block"
+                                    viewBox="0 0 375 50"
+                                    preserveAspectRatio="none"
+                                >
+                                    <path d="M0,25 C120,55 240,0 375,10 L375,50 L0,50 Z" />
+                                </svg>
+                            </div>
+                        </div>
+
+                        {/* Card Body (Scrollable) */}
+                        <div className="pt-24 px-6 pb-4 overflow-y-auto space-y-4 flex-1">
+                            {/* Title & Price */}
+                            <div className="flex items-start justify-between gap-3">
+                                <div className="flex-1 min-w-0">
+                                    <h2 className="text-xl sm:text-2xl font-black text-neutral-900 leading-snug">
+                                        {detailModalMenu.name}
+                                    </h2>
+                                    {detailCategoryName && (
+                                        <p className="text-xs font-semibold text-primary mt-0.5">
+                                            Kategori: {detailCategoryName}
+                                        </p>
+                                    )}
+                                </div>
+                                <div className="text-right shrink-0">
+                                    <span className="text-xl sm:text-2xl font-black text-primary">
+                                        {formatPrice(detailModalMenu.price)}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Deskripsi & Komposisi (Ingredients) */}
+                            <div className="pt-3 border-t border-neutral-100">
+                                <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-800 mb-1.5">
+                                    Deskripsi & Komposisi
+                                </h4>
+                                <p className="text-xs text-neutral-600 leading-relaxed">
+                                    {detailModalMenu.description ||
+                                        'Dibuat dengan bahan-bahan pilihan berkualitas, diolah secara higienis dan disajikan hangat langsung dari dapur.'}
+                                </p>
+                            </div>
+
+                            {/* Catatan Khusus Pesanan (Opsional) */}
+                            <div className="pt-3 border-t border-neutral-100">
+                                <label className="block text-xs font-bold uppercase tracking-wider text-neutral-800 mb-1.5 flex items-center gap-1.5">
+                                    <StickyNote className="w-3.5 h-3.5 text-primary" />
+                                    <span>Catatan Khusus (Opsional)</span>
+                                </label>
+                                <textarea
+                                    value={detailNotes}
+                                    onChange={(e) => setDetailNotes(e.target.value)}
+                                    placeholder="Contoh: jangan pedas, kuah dipisah, sendok plastik..."
+                                    className="w-full p-3 rounded-xl border border-neutral-200 text-xs resize-none h-18 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-neutral-50/50"
+                                    maxLength={150}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Bottom Action Bar (Sticky di Bawah) */}
+                        <div className="p-4 sm:p-5 border-t border-neutral-100 bg-white flex items-center gap-3 shrink-0 shadow-lg">
+                            {/* Stepper Jumlah Porsi: [ - ] qty [ + ] */}
+                            <div className="flex items-center gap-1.5 bg-neutral-100 p-1 rounded-2xl shrink-0">
+                                <button
+                                    type="button"
+                                    onClick={() => setDetailQty((prev) => Math.max(1, prev - 1))}
+                                    disabled={detailQty <= 1}
+                                    className="w-9 h-9 rounded-xl bg-white hover:bg-neutral-200 text-neutral-800 flex items-center justify-center font-bold text-sm shadow-2xs transition-all active:scale-95 disabled:opacity-40 cursor-pointer"
+                                >
+                                    <Minus className="w-4 h-4" />
+                                </button>
+                                <span className="font-black text-sm text-neutral-900 min-w-[24px] text-center">
+                                    {detailQty}
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => setDetailQty((prev) => prev + 1)}
+                                    className="w-9 h-9 rounded-xl bg-primary hover:bg-primary-dark text-white flex items-center justify-center font-bold text-sm shadow-2xs transition-all active:scale-95 cursor-pointer"
+                                >
+                                    <Plus className="w-4 h-4" />
+                                </button>
+                            </div>
+
+                            {/* Tombol Utama: Tambah ke Keranjang */}
+                            <button
+                                type="button"
+                                onClick={handleDetailAddToCart}
+                                className="flex-1 py-3 px-4 rounded-2xl bg-primary hover:bg-primary-dark text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-primary/30 transition-all active:scale-98 cursor-pointer"
+                            >
+                                <ShoppingCart className="w-4 h-4 shrink-0" />
+                                <span>Tambah ke Keranjang</span>
+                                <span className="opacity-70">•</span>
+                                <span>{formatPrice(detailModalMenu.price * detailQty)}</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Quick Note Modal (dari Grid jika item sudah ada di keranjang) */}
             {noteModal && (
                 <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
                     <div className="absolute inset-0 bg-black/50" onClick={() => setNoteModal(null)} />
