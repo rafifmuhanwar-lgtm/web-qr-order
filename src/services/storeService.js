@@ -32,6 +32,8 @@ export const getStore = async (storeId) => {
         feePerKm: extra.feePerKm !== undefined ? extra.feePerKm : 2500,
         maxDistanceKm: extra.maxDistanceKm !== undefined ? extra.maxDistanceKm : 15,
         whatsapp: extra.whatsapp || '',
+        menuLayout: extra.menuLayout || 'banner',
+        categoryBanners: extra.categoryBanners || {},
         deliverySettings: extra,
     };
 };

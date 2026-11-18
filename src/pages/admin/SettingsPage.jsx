@@ -4,7 +4,7 @@ import { THEME_COLORS, COLOR_OPTIONS, applyThemeColor } from '../../utils/themeU
 import { parseStoreConfig } from '../../utils/deliveryUtils';
 import { getStore, updateStore } from '../../services/storeService';
 import { uploadMenuImage } from '../../services/menuService';
-import { Store, Palette, Save, Check, Pipette, MessageSquare, Receipt, Upload, Bike, MapPin, Phone } from 'lucide-react';
+import { Store, Palette, Save, Check, Pipette, MessageSquare, Receipt, Upload, Bike, MapPin, Phone, Layers, LayoutGrid, Sparkles } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Spinner from '../../components/ui/Spinner';
@@ -32,6 +32,7 @@ export default function SettingsPage() {
     const [logoUrl, setLogoUrl] = useState('');
     const [welcomeMessage, setWelcomeMessage] = useState('');
     const [receiptFooter, setReceiptFooter] = useState('');
+    const [menuLayout, setMenuLayout] = useState('banner');
     const [uploadingLogo, setUploadingLogo] = useState(false);
 
     useEffect(() => {
@@ -45,6 +46,7 @@ export default function SettingsPage() {
                     setLogoUrl(data.logoUrl || '');
                     setWelcomeMessage(data.welcomeMessage || '');
                     setReceiptFooter(data.receiptFooter || '');
+                    setMenuLayout(data.menuLayout || 'banner');
 
                     const cfg = parseStoreConfig(data);
                     setAddress(cfg.address || '');
@@ -94,6 +96,7 @@ export default function SettingsPage() {
                 customColor: themeColor === 'custom' ? customColor : null,
                 welcomeMessage,
                 receiptFooter,
+                menuLayout,
             };
 
             await updateStore(storeId, {
@@ -104,6 +107,7 @@ export default function SettingsPage() {
                 customColor: themeColor === 'custom' ? customColor : null,
                 welcomeMessage,
                 receiptFooter,
+                menuLayout,
             });
             await refreshStore();
             toast.success('Pengaturan toko & lokasi berhasil disimpan');
@@ -454,6 +458,88 @@ export default function SettingsPage() {
                             </div>
                         </div>
                     )}
+                </div>
+            </div>
+
+            {/* Tampilan Menu Pelanggan (Layout Mode) */}
+            <div className="bg-white rounded-2xl border border-border p-5 shadow-sm space-y-4">
+                <div className="flex items-center gap-2 mb-1">
+                    <Layers className="w-5 h-5 text-primary" />
+                    <div>
+                        <h2 className="font-bold text-secondary">Tampilan Menu Pelanggan</h2>
+                        <p className="text-xs text-slate-400">Pilih format visual menu yang dilihat pelanggan saat scan QR meja / pesan online</p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
+                    {/* Mode Banner Kategori (Foto 2) */}
+                    <button
+                        type="button"
+                        onClick={() => setMenuLayout('banner')}
+                        className={`p-4 rounded-xl border-2 text-left transition-all cursor-pointer relative flex flex-col justify-between ${
+                            menuLayout === 'banner'
+                                ? 'border-primary bg-primary/5 shadow-xs'
+                                : 'border-border bg-white hover:border-slate-300'
+                        }`}
+                    >
+                        <div>
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="font-bold text-sm text-secondary flex items-center gap-1.5">
+                                    <Sparkles className="w-4 h-4 text-orange-500" />
+                                    Mode Banner Kategori
+                                </span>
+                                {menuLayout === 'banner' && (
+                                    <span className="w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center">
+                                        <Check className="w-3.5 h-3.5" />
+                                    </span>
+                                )}
+                            </div>
+                            <p className="text-xs text-slate-500 leading-relaxed mb-3">
+                                Menampilkan kartu banner visual per kategori dengan foto makanan menggugah selera. Tampilan modern, bersih, dan interaktif.
+                            </p>
+                        </div>
+                        {/* Mini Visual Preview */}
+                        <div className="p-2.5 rounded-lg bg-neutral-100/90 border border-neutral-200 flex items-center justify-between">
+                            <div className="space-y-1">
+                                <div className="w-20 h-2.5 bg-neutral-400 rounded-full" />
+                                <div className="w-12 h-1.5 bg-neutral-300 rounded-full" />
+                            </div>
+                            <div className="w-9 h-9 rounded-lg bg-orange-200/80 border border-orange-300/60" />
+                        </div>
+                    </button>
+
+                    {/* Mode Grid Biasa */}
+                    <button
+                        type="button"
+                        onClick={() => setMenuLayout('grid')}
+                        className={`p-4 rounded-xl border-2 text-left transition-all cursor-pointer relative flex flex-col justify-between ${
+                            menuLayout === 'grid'
+                                ? 'border-primary bg-primary/5 shadow-xs'
+                                : 'border-border bg-white hover:border-slate-300'
+                        }`}
+                    >
+                        <div>
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="font-bold text-sm text-secondary flex items-center gap-1.5">
+                                    <LayoutGrid className="w-4 h-4 text-slate-600" />
+                                    Mode Grid Standar
+                                </span>
+                                {menuLayout === 'grid' && (
+                                    <span className="w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center">
+                                        <Check className="w-3.5 h-3.5" />
+                                    </span>
+                                )}
+                            </div>
+                            <p className="text-xs text-slate-500 leading-relaxed mb-3">
+                                Menampilkan langsung daftar menu dalam kotak grid 2 kolom standar tanpa banner kategori (tampilan klasik eMakan).
+                            </p>
+                        </div>
+                        {/* Mini Visual Preview */}
+                        <div className="p-2.5 rounded-lg bg-neutral-100/90 border border-neutral-200 grid grid-cols-2 gap-2">
+                            <div className="h-9 rounded-lg bg-neutral-300" />
+                            <div className="h-9 rounded-lg bg-neutral-300" />
+                        </div>
+                    </button>
                 </div>
             </div>
 
