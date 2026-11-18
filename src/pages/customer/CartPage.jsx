@@ -40,7 +40,6 @@ export default function CartPage() {
     });
 
     const [submitting, setSubmitting] = useState(false);
-    const [generalNotes, setGeneralNotes] = useState('');
     const [customerName, setCustomerName] = useState(() => {
         return sessionStorage.getItem('emakan_customer_name') || localStorage.getItem('emakan_customer_name') || '';
     });
@@ -212,8 +211,8 @@ export default function CartPage() {
                     notes: item.notes || '',
                 })),
                 totalPrice: finalTotal,
-                notes: generalNotes,
-                userNotes: generalNotes,
+                notes: cart.map(i => i.notes ? `${i.name}: ${i.notes}` : '').filter(Boolean).join(' | '),
+                userNotes: cart.map(i => i.notes ? `${i.name}: ${i.notes}` : '').filter(Boolean).join(' | '),
                 orderType: finalOrderType,
                 paymentMethod: selectedPayment,
                 paymentStatus: selectedPayment === 'cash' ? 'pay_at_counter' : 'pending',
@@ -289,9 +288,11 @@ export default function CartPage() {
                                         <h3 className="font-semibold text-sm text-secondary truncate">{item.name}</h3>
                                         <p className="text-primary font-bold text-sm mt-0.5">{formatPrice(item.price)}</p>
                                         {item.notes && (
-                                            <div className="flex items-center gap-1 mt-1">
-                                                <StickyNote className="w-3 h-3 text-amber-500 shrink-0" />
-                                                <span className="text-xs text-amber-600 truncate">{item.notes}</span>
+                                            <div className="mt-1">
+                                                <span className="text-[11px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/60 inline-flex items-center gap-1 font-medium max-w-full">
+                                                    <StickyNote className="w-3 h-3 text-amber-500 shrink-0" />
+                                                    <span className="truncate">{item.notes}</span>
+                                                </span>
                                             </div>
                                         )}
                                     </div>
@@ -319,17 +320,6 @@ export default function CartPage() {
                                 </div>
                             </div>
                         ))}
-                    </div>
-
-                    {/* Catatan Khusus */}
-                    <div className="bg-white rounded-2xl border border-border p-4 shadow-xs">
-                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">Catatan Tambahan untuk Dapur</label>
-                        <textarea
-                            value={generalNotes}
-                            onChange={(e) => setGeneralNotes(e.target.value)}
-                            placeholder="Contoh: Sambal dipisah, es sedikit..."
-                            className="w-full p-3 rounded-xl border border-border text-sm resize-none h-18 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
-                        />
                     </div>
 
                     {/* Mode Pesanan: Online vs Meja */}
