@@ -24,7 +24,23 @@ export const DEFAULT_PAYHOOK_CONFIG = {
 export function getPayhookConfig() {
     try {
         const saved = localStorage.getItem(PAYHOOK_STORAGE_KEY);
-        if (saved) return { ...DEFAULT_PAYHOOK_CONFIG, ...JSON.parse(saved) };
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            // Auto upgrade if still using legacy chiropractic/bypipx static QRIS
+            if (parsed.rawStaticQris && parsed.rawStaticQris.includes('bypipx')) {
+                const upgraded = {
+                    ...parsed,
+                    rawStaticQris: MASTER_QRIS_STATIC,
+                    merchantName: MASTER_MERCHANT_INFO.name,
+                    nmid: MASTER_MERCHANT_INFO.nmid,
+                    address: MASTER_MERCHANT_INFO.address,
+                    provider: MASTER_MERCHANT_INFO.provider,
+                };
+                savePayhookConfig(upgraded);
+                return { ...DEFAULT_PAYHOOK_CONFIG, ...upgraded };
+            }
+            return { ...DEFAULT_PAYHOOK_CONFIG, ...parsed };
+        }
     } catch {
         // fallback
     }
