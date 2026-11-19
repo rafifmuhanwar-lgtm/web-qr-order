@@ -55,7 +55,7 @@ export default function LandingPage() {
         },
         {
             q: 'Metode pembayaran apa saja yang disediakan?',
-            a: 'Mendukung pembayaran langsung dengan scan QRIS serta bayar tunai di kasir atau sistem COD saat pesanan diantar.'
+            a: 'Sistem mendukung 100% pembayaran instan via QRIS Dinamis (GoPay, OVO, Dana, ShopeePay, serta seluruh m-Banking) dengan verifikasi lunas otomatis tanpa perlu antre di kasir.'
         },
         {
             q: 'Apakah struk belanja bisa dicetak ke printer kasir Bluetooth?',

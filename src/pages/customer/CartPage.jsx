@@ -12,7 +12,6 @@ import {
     Trash2,
     ChefHat,
     QrCode,
-    Banknote,
     UtensilsCrossed,
     ShoppingBag,
     Bike,
@@ -45,7 +44,6 @@ export default function CartPage() {
     });
     const [deliveryAddress, setDeliveryAddress] = useState('');
     const [orderType, setOrderType] = useState(isOnlineOrder ? 'take_away' : 'dine_in');
-    const [paymentMethod, setPaymentMethod] = useState(isOnlineOrder ? 'qris' : '');
 
     // Delivery & Coordinates State
     const [storeConfig, setStoreConfig] = useState(null);
@@ -176,15 +174,10 @@ export default function CartPage() {
                 toast.error('Pilih tipe pesanan (Dine In / Take Away)');
                 return;
             }
-            if (!paymentMethod) {
-                toast.error('Pilih metode pembayaran (QRIS / Kasir)');
-                return;
-            }
         }
 
         setSubmitting(true);
         try {
-            const selectedPayment = isOnlineOrder ? 'qris' : paymentMethod;
             const finalOrderType = isOnlineOrder ? orderType : (orderType || 'dine_in');
 
             if (sanitizedName) {
@@ -214,8 +207,8 @@ export default function CartPage() {
                 notes: cart.map(i => i.notes ? `${i.name}: ${i.notes}` : '').filter(Boolean).join(' | '),
                 userNotes: cart.map(i => i.notes ? `${i.name}: ${i.notes}` : '').filter(Boolean).join(' | '),
                 orderType: finalOrderType,
-                paymentMethod: selectedPayment,
-                paymentStatus: selectedPayment === 'cash' ? 'pay_at_counter' : 'pending',
+                paymentMethod: 'qris',
+                paymentStatus: 'pending',
             };
 
             const orderId = await createOrder(orderData);
@@ -224,14 +217,9 @@ export default function CartPage() {
                 sessionStorage.setItem(`emakan_active_order_${storeId}`, orderId);
             }
 
-            if (selectedPayment === 'qris') {
-                const invoice = generatePayhookInvoice(finalTotal, orderId);
-                toast.success('Pesanan dikirim! Silakan scan QRIS');
-                navigate(`/order-status/${orderId}`, { state: { payhookInvoice: invoice } });
-            } else {
-                toast.success('Pesanan berhasil dikirim!');
-                navigate(`/order-status/${orderId}`);
-            }
+            const invoice = generatePayhookInvoice(finalTotal, orderId);
+            toast.success('Pesanan dibuat! Silakan scan QRIS untuk menyelesaikan.');
+            navigate(`/order-status/${orderId}`, { state: { payhookInvoice: invoice } });
         } catch {
             toast.error('Gagal mengirim pesanan');
         } finally {
@@ -254,7 +242,7 @@ export default function CartPage() {
                 <div>
                     <h1 className="font-bold text-secondary text-base">Keranjang Pesanan</h1>
                     <p className="text-xs text-slate-400">
-                        {isOnlineOrder ? 'Pesan Online / Dari Rumah' : `Meja #${String(tableId).padStart(3, '0')}`} · {cart.length} item
+                        {isOnlineOrder ? 'Pesan Online' : `Meja #${String(tableId).padStart(3, '0')}`} · {cart.length} item
                     </p>
                 </div>
             </div>
@@ -381,7 +369,7 @@ export default function CartPage() {
                                             className="w-full pl-9 pr-3 py-2 rounded-xl border border-border text-xs focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
                                         />
                                     </div>
-                                    <p className="text-[10px] text-slate-400 mt-1">Min. 2 & maks. 15 karakter (nama asli wajar).</p>
+                                    <p className="text-[10px] text-slate-400 mt-1">Min. 2 & maks. 15 karakter (nama asli).</p>
                                 </div>
 
                                 {orderType === 'delivery' && (
@@ -392,7 +380,7 @@ export default function CartPage() {
                                                     <MapPin className="w-3.5 h-3.5 text-primary" />
                                                     <span>Titik Lokasi Pengantaran (Peta)</span>
                                                 </label>
-                                                <span className="text-[10px] text-slate-400">Gratis & Presisi</span>
+                                                <span className="text-[10px] text-slate-400">Akurat & Presisi</span>
                                             </div>
                                             <MapPicker
                                                 initialLat={storeConfig?.lat || -6.2088}
@@ -456,7 +444,6 @@ export default function CartPage() {
                                                     <HeartHandshake className="w-4 h-4 text-rose-500" />
                                                     <span>Beri Tip untuk Kurir?</span>
                                                 </label>
-                                                <span className="text-[10px] text-slate-400">100% untuk kurir</span>
                                             </div>
                                             <div className="grid grid-cols-4 gap-1.5">
                                                 {[0, 2000, 5000, 10000].map((tipVal) => (
@@ -528,7 +515,7 @@ export default function CartPage() {
                                 <div>
                                     <span className="font-bold">Pembayaran Wajib QRIS:</span>
                                     <p className="text-[11px] text-amber-700 mt-0.5">
-                                        Untuk pesanan dari rumah, pesanan akan langsung diproses dapur setelah QRIS terbayar.
+                                        Untuk semua pemesanan online, pesanan akan langsung diproses setelah men-scan barcode QRIS dan lunas terbayar.
                                     </p>
                                 </div>
                             </div>
@@ -569,36 +556,23 @@ export default function CartPage() {
                                 </div>
                             </div>
 
-                            {/* Pilihan Metode Pembayaran Meja */}
+                            {/* Info Metode Pembayaran: 100% QRIS */}
                             <div className="bg-white rounded-2xl border border-border p-4 shadow-xs">
-                                <h3 className="text-xs font-semibold text-slate-700 mb-2">Metode Pembayaran</h3>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <button
-                                        type="button"
-                                        onClick={() => setPaymentMethod('qris')}
-                                        className={`p-3.5 rounded-xl border-2 text-center transition-all cursor-pointer ${
-                                            paymentMethod === 'qris'
-                                                ? 'border-primary bg-primary/5 shadow-xs'
-                                                : 'border-border hover:border-slate-300'
-                                        }`}
-                                    >
-                                        <QrCode className={`w-6 h-6 mx-auto mb-1.5 ${paymentMethod === 'qris' ? 'text-primary' : 'text-slate-400'}`} />
-                                        <p className={`text-xs font-bold ${paymentMethod === 'qris' ? 'text-primary' : 'text-slate-600'}`}>QRIS</p>
-                                        <p className="text-[10px] text-slate-400 mt-0.5">Scan langsung</p>
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setPaymentMethod('cash')}
-                                        className={`p-3.5 rounded-xl border-2 text-center transition-all cursor-pointer ${
-                                            paymentMethod === 'cash'
-                                                ? 'border-primary bg-primary/5 shadow-xs'
-                                                : 'border-border hover:border-slate-300'
-                                        }`}
-                                    >
-                                        <Banknote className={`w-6 h-6 mx-auto mb-1.5 ${paymentMethod === 'cash' ? 'text-primary' : 'text-slate-400'}`} />
-                                        <p className={`text-xs font-bold ${paymentMethod === 'cash' ? 'text-primary' : 'text-slate-600'}`}>Bayar di Kasir</p>
-                                        <p className="text-[10px] text-slate-400 mt-0.5">Tunai di kasir</p>
-                                    </button>
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
+                                        <QrCode className="w-5 h-5" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-bold text-xs text-secondary">Metode Pembayaran: QRIS</span>
+                                            <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/60">
+                                                Lunas Otomatis
+                                            </span>
+                                        </div>
+                                        <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
+                                            Bayar instan langsung dari meja tanpa perlu antre ke kasir. Scan via GoPay, OVO, Dana, ShopeePay & semua m-Banking.
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
                         </>
@@ -642,8 +616,8 @@ export default function CartPage() {
                                 <span>Mengirim Pesanan...</span>
                             ) : (
                                 <>
-                                    <CheckCircle2 className="w-5 h-5" />
-                                    <span>{isOnlineOrder ? 'Kirim Pesanan & Bayar QRIS' : 'Kirim Pesanan Sekarang'}</span>
+                                    <QrCode className="w-5 h-5" />
+                                    <span>Bayar via QRIS Sekarang • {formatPrice(finalTotal)}</span>
                                 </>
                             )}
                         </button>
