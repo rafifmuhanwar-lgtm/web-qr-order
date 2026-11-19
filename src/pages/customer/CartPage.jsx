@@ -4,7 +4,9 @@ import { createOrder } from '../../services/orderService';
 import { getStore } from '../../services/storeService';
 import { parseStoreConfig, calculateDistanceKm, calculateShippingFee } from '../../utils/deliveryUtils';
 import { validateCustomerName } from '../../utils/nameValidator';
-import { generatePayhookInvoice } from '../../services/payhookService';
+import { getPayhookConfig } from '../../services/payhookService';
+import { generateDynamicQris, MASTER_QRIS_STATIC } from '../../utils/qrisUtils';
+import { QRCodeSVG } from 'qrcode.react';
 import {
     ArrowLeft,
     Minus,
@@ -20,7 +22,11 @@ import {
     CheckCircle2,
     HeartHandshake,
     AlertCircle,
-    Sparkles
+    Sparkles,
+    Copy,
+    X,
+    ShieldCheck,
+    RefreshCw,
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import MapPicker from '../../components/ui/MapPicker';
@@ -44,6 +50,12 @@ export default function CartPage() {
     });
     const [deliveryAddress, setDeliveryAddress] = useState('');
     const [orderType, setOrderType] = useState(isOnlineOrder ? 'take_away' : 'dine_in');
+
+    // QRIS Flow Modal State (Order is NOT saved in DB until payment is confirmed!)
+    const [showQrisModal, setShowQrisModal] = useState(false);
+    const [pendingOrderPayload, setPendingOrderPayload] = useState(null);
+    const [verifyingPayment, setVerifyingPayment] = useState(false);
+    const [qrisPayload, setQrisPayload] = useState('');
 
     // Delivery & Coordinates State
     const [storeConfig, setStoreConfig] = useState(null);
@@ -176,53 +188,78 @@ export default function CartPage() {
             }
         }
 
+        const finalOrderType = isOnlineOrder ? orderType : (orderType || 'dine_in');
+
+        if (sanitizedName) {
+            sessionStorage.setItem('emakan_customer_name', sanitizedName);
+            localStorage.setItem('emakan_customer_name', sanitizedName);
+        }
+
+        const orderData = {
+            storeId,
+            tableId: tableId || null,
+            tableNumber: tableId ? String(tableId).padStart(3, '0') : null,
+            customerName: sanitizedName || (tableId ? `Tamu Meja #${String(tableId).padStart(3, '0')}` : 'Pelanggan Online'),
+            customerPhone: null,
+            deliveryAddress: finalOrderType === 'delivery' ? deliveryAddress.trim() : null,
+            shippingFee: finalOrderType === 'delivery' ? (shippingCalculation.fee || 0) : 0,
+            courierTip: finalOrderType === 'delivery' ? (Number(courierTip) || 0) : 0,
+            distanceKm: finalOrderType === 'delivery' ? distanceKm : 0,
+            customerCoordinates: finalOrderType === 'delivery' ? customerCoords : null,
+            items: cart.map((item) => ({
+                menuId: item.id,
+                name: item.name,
+                price: item.price,
+                quantity: item.quantity,
+                notes: item.notes || '',
+            })),
+            totalPrice: finalTotal,
+            notes: cart.map(i => i.notes ? `${i.name}: ${i.notes}` : '').filter(Boolean).join(' | '),
+            userNotes: cart.map(i => i.notes ? `${i.name}: ${i.notes}` : '').filter(Boolean).join(' | '),
+            orderType: finalOrderType,
+            paymentMethod: 'qris',
+            paymentStatus: 'paid', // Saved as paid upon confirmation!
+            status: 'pending',
+        };
+
+        // Prepare Dynamic QRIS Code
+        const payhookCfg = getPayhookConfig();
+        const rawStatic = payhookCfg?.rawStaticQris || MASTER_QRIS_STATIC;
+        const dynamicCode = generateDynamicQris(rawStatic, finalTotal);
+
+        setQrisPayload(dynamicCode);
+        setPendingOrderPayload(orderData);
+        setShowQrisModal(true);
+    };
+
+    const handleConfirmAndCreateOrder = async () => {
+        if (!pendingOrderPayload || submitting) return;
+
         setSubmitting(true);
+        setVerifyingPayment(true);
+
         try {
-            const finalOrderType = isOnlineOrder ? orderType : (orderType || 'dine_in');
+            // Short 800ms verification state for user confidence
+            await new Promise((r) => setTimeout(r, 800));
 
-            if (sanitizedName) {
-                sessionStorage.setItem('emakan_customer_name', sanitizedName);
-                localStorage.setItem('emakan_customer_name', sanitizedName);
-            }
+            // ONLY HERE: Save order into database after scan/payment is confirmed!
+            const orderId = await createOrder(pendingOrderPayload);
 
-            const orderData = {
-                storeId,
-                tableId: tableId || null,
-                tableNumber: tableId ? String(tableId).padStart(3, '0') : null,
-                customerName: sanitizedName || (tableId ? `Tamu Meja #${String(tableId).padStart(3, '0')}` : 'Pelanggan Online'),
-                customerPhone: null,
-                deliveryAddress: finalOrderType === 'delivery' ? deliveryAddress.trim() : null,
-                shippingFee: finalOrderType === 'delivery' ? (shippingCalculation.fee || 0) : 0,
-                courierTip: finalOrderType === 'delivery' ? (Number(courierTip) || 0) : 0,
-                distanceKm: finalOrderType === 'delivery' ? distanceKm : 0,
-                customerCoordinates: finalOrderType === 'delivery' ? customerCoords : null,
-                items: cart.map((item) => ({
-                    menuId: item.id,
-                    name: item.name,
-                    price: item.price,
-                    quantity: item.quantity,
-                    notes: item.notes || '',
-                })),
-                totalPrice: finalTotal,
-                notes: cart.map(i => i.notes ? `${i.name}: ${i.notes}` : '').filter(Boolean).join(' | '),
-                userNotes: cart.map(i => i.notes ? `${i.name}: ${i.notes}` : '').filter(Boolean).join(' | '),
-                orderType: finalOrderType,
-                paymentMethod: 'qris',
-                paymentStatus: 'pending',
-            };
-
-            const orderId = await createOrder(orderData);
+            // Clear active cart from memory and session
+            setCart([]);
             sessionStorage.removeItem(`cart_${storeId}_${tableId || 'online'}`);
             if (storeId) {
                 sessionStorage.setItem(`emakan_active_order_${storeId}`, orderId);
             }
 
-            const invoice = generatePayhookInvoice(finalTotal, orderId);
-            toast.success('Pesanan dibuat! Silakan scan QRIS untuk menyelesaikan.');
-            navigate(`/order-status/${orderId}`, { state: { payhookInvoice: invoice } });
-        } catch {
-            toast.error('Gagal mengirim pesanan');
+            toast.success('Pembayaran QRIS Berhasil! Pesanan diteruskan ke dapur.');
+            setShowQrisModal(false);
+            navigate(`/order-status/${orderId}`);
+        } catch (err) {
+            console.error('Error confirming order:', err);
+            toast.error('Gagal memproses pesanan. Silakan coba lagi.');
         } finally {
+            setVerifyingPayment(false);
             setSubmitting(false);
         }
     };
@@ -570,7 +607,7 @@ export default function CartPage() {
                                             </span>
                                         </div>
                                         <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
-                                            Bayar instan langsung dari meja tanpa perlu antre ke kasir. Scan via GoPay, OVO, Dana, ShopeePay & semua m-Banking.
+                                            Bayar instan langsung dari meja tanpa perlu ke kasir. Scan via e-wallet & semua m-Banking.
                                         </p>
                                     </div>
                                 </div>
@@ -621,6 +658,137 @@ export default function CartPage() {
                                 </>
                             )}
                         </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal Scan QRIS (Pesanan BELUM masuk database sebelum pembayaran dikonfirmasi) */}
+            {showQrisModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
+                    <div className="bg-white rounded-3xl max-w-sm w-full p-5 shadow-2xl border border-slate-100 max-h-[92vh] overflow-y-auto space-y-4">
+                        {/* Header Modal */}
+                        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                            <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                                    <QrCode className="w-4 h-4" />
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-sm text-secondary">Scan Bayar QRIS</h3>
+                                    <p className="text-[10px] text-slate-400">Verifikasi instan otomatis</p>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (!verifyingPayment) {
+                                        setShowQrisModal(false);
+                                        setPendingOrderPayload(null);
+                                    }
+                                }}
+                                disabled={verifyingPayment}
+                                className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer disabled:opacity-30"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        {/* Merchant Details */}
+                        <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3 text-center">
+                            <p className="font-bold text-xs text-secondary tracking-wide uppercase">
+                                {getPayhookConfig()?.merchantName || 'eMakan Merchant'}
+                            </p>
+                            <p className="text-[10px] font-mono text-primary font-semibold mt-0.5">
+                                NMID: {getPayhookConfig()?.nmid || 'ID1026490305079'}
+                            </p>
+                        </div>
+
+                        {/* QR Code Container */}
+                        <div className="relative p-4 bg-white rounded-2xl border-2 border-slate-200 shadow-xs text-center">
+                            {qrisPayload ? (
+                                <QRCodeSVG
+                                    value={qrisPayload}
+                                    size={210}
+                                    level="M"
+                                    includeMargin={true}
+                                    className="mx-auto rounded-xl"
+                                />
+                            ) : (
+                                <img
+                                    src="/payhook-qris.jpg"
+                                    alt="QRIS"
+                                    className="w-full max-w-[210px] mx-auto rounded-xl object-contain"
+                                />
+                            )}
+                            <div className="mt-2.5 flex items-center justify-center gap-1.5 text-[10px] font-bold text-emerald-800 bg-emerald-50 py-1 px-3 rounded-full border border-emerald-200/70">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                                QRIS Dinamis • Nominal Terkunci Otomatis
+                            </div>
+                        </div>
+
+                        {/* Total Nominal Box */}
+                        <div className="bg-orange-50 border border-orange-200/80 rounded-2xl p-3 text-center space-y-0.5">
+                            <span className="text-[11px] font-medium text-orange-800">Total Tagihan yang Harus Dibayar:</span>
+                            <div className="flex items-center justify-center gap-2">
+                                <span className="text-2xl font-black text-orange-600 font-mono tracking-tight">
+                                    {formatPrice(finalTotal)}
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(String(finalTotal));
+                                        toast.success('Nominal disalin!');
+                                    }}
+                                    className="p-1 text-orange-600 hover:text-orange-800 hover:bg-orange-100 rounded-lg transition-colors cursor-pointer"
+                                    title="Salin Nominal"
+                                >
+                                    <Copy className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Petunjuk Singkat */}
+                        <div className="bg-slate-50 rounded-xl p-3 text-[11px] text-slate-500 space-y-1">
+                            <p className="font-semibold text-slate-700">Cara Pembayaran:</p>
+                            <p>1. Buka GoPay, OVO, Dana, ShopeePay, atau m-Banking pilihan Anda.</p>
+                            <p>2. Scan kode QRIS di atas. Nominal sudah terkunci otomatis.</p>
+                            <p>3. Selesaikan transfer, lalu klik tombol konfirmasi di bawah.</p>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="space-y-2 pt-1">
+                            <button
+                                type="button"
+                                onClick={handleConfirmAndCreateOrder}
+                                disabled={verifyingPayment}
+                                className="w-full py-3.5 rounded-2xl bg-primary hover:bg-primary-dark text-white font-bold text-sm shadow-lg shadow-primary/25 transition-all cursor-pointer disabled:opacity-60 flex items-center justify-center gap-2"
+                            >
+                                {verifyingPayment ? (
+                                    <>
+                                        <RefreshCw className="w-4 h-4 animate-spin" />
+                                        <span>Memverifikasi Pembayaran...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <CheckCircle2 className="w-4 h-4" />
+                                        <span>Saya Sudah Bayar (Kirim ke Dapur)</span>
+                                    </>
+                                )}
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (!verifyingPayment) {
+                                        setShowQrisModal(false);
+                                        setPendingOrderPayload(null);
+                                    }
+                                }}
+                                disabled={verifyingPayment}
+                                className="w-full py-2.5 rounded-xl text-slate-500 hover:text-slate-700 hover:bg-slate-50 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-40"
+                            >
+                                Batal / Ubah Pesanan
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

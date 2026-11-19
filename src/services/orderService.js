@@ -64,7 +64,12 @@ export const createOrder = async (orderData) => {
     if (error) throw error;
 
     // Trigger instant broadcast to all listening dashboards/devices
-    broadcastOrderChange({ orderId: result.id, storeId: corePayload.storeId, type: 'new_order' });
+    broadcastOrderChange({
+        orderId: result.id,
+        storeId: corePayload.storeId,
+        type: 'new_order',
+        order: result,
+    });
 
     return result.id;
 };

@@ -292,7 +292,7 @@ export default function OrderStatusPage() {
                 <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-center text-emerald-800 animate-fade-in space-y-1">
                     <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
                     <h4 className="font-bold text-sm">Pembayaran QRIS Berhasil!</h4>
-                    <p className="text-xs text-emerald-700">Terima kasih, pembayaran Anda telah diterima sistem Payhook.</p>
+                    <p className="text-xs text-emerald-700 font-medium">Pembayaran QRIS lunas & pesanan langsung diteruskan ke dapur.</p>
                 </div>
             )}
 
