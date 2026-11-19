@@ -239,10 +239,10 @@ export function validateCustomerName(rawName) {
         return { valid: false, message: 'Nama harus mengandung huruf alfabet' };
     }
 
-    // 3. Karakter yang Diizinkan: Huruf, spasi, angka, tanda petik satu ('), dan titik (.)
-    const allowedRegex = /^[a-zA-Z0-9\s'.]+$/;
+    // 3. Karakter yang Diizinkan: Huruf, spasi, angka, tanda petik ('), titik (.), strip (-), dan pagar (#)
+    const allowedRegex = /^[a-zA-Z0-9\s'.,#-]+$/;
     if (!allowedRegex.test(trimmed)) {
-        return { valid: false, message: 'Nama hanya boleh huruf, angka, spasi, tanda petik (\') atau titik (.)' };
+        return { valid: false, message: 'Nama hanya boleh huruf, angka, spasi, tanda petik, titik, atau tanda strip/pagar' };
     }
 
     // 4. Mencegah nama angka murni

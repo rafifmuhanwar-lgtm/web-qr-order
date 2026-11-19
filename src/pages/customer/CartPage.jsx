@@ -47,7 +47,9 @@ export default function CartPage() {
 
     const [submitting, setSubmitting] = useState(false);
     const [customerName, setCustomerName] = useState(() => {
-        return sessionStorage.getItem('emakan_customer_name') || localStorage.getItem('emakan_customer_name') || '';
+        const saved = sessionStorage.getItem('emakan_customer_name') || localStorage.getItem('emakan_customer_name') || '';
+        if (saved.startsWith('Tamu Meja') || saved.startsWith('Meja #')) return '';
+        return saved;
     });
     const [deliveryAddress, setDeliveryAddress] = useState('');
     const [orderType, setOrderType] = useState(isOnlineOrder ? 'take_away' : 'dine_in');
@@ -177,11 +179,14 @@ export default function CartPage() {
         } else {
             if (customerName.trim()) {
                 const check = validateCustomerName(customerName);
-                if (!check.valid) {
-                    toast.error(check.message);
-                    return;
+                if (check.valid) {
+                    sanitizedName = check.sanitizedName;
+                } else {
+                    // Fallback otomatis ke Meja jika nama tidak valid
+                    sanitizedName = `Tamu Meja #${String(tableId).padStart(3, '0')}`;
                 }
-                sanitizedName = check.sanitizedName;
+            } else {
+                sanitizedName = `Tamu Meja #${String(tableId).padStart(3, '0')}`;
             }
             if (!orderType) {
                 toast.error('Pilih tipe pesanan (Dine In / Take Away)');
@@ -561,6 +566,25 @@ export default function CartPage() {
                     ) : (
                         /* Section Khusus Pesanan Tamu di Meja Resto */
                         <>
+                            {/* Nama Pemesan di Meja (Opsional) */}
+                            <div className="bg-white rounded-2xl border border-border p-4 shadow-xs">
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <label className="text-xs font-semibold text-slate-700">Nama Pemesan (Opsional)</label>
+                                    <span className="text-[10px] text-slate-400">Meja #{tableId}</span>
+                                </div>
+                                <div className="relative">
+                                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                    <input
+                                        type="text"
+                                        value={customerName}
+                                        onChange={(e) => setCustomerName(e.target.value)}
+                                        placeholder={`Contoh: Budi (atau biarkan kosong untuk Meja #${tableId})`}
+                                        maxLength={15}
+                                        className="w-full pl-9 pr-3 py-2 rounded-xl border border-border text-xs focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                                    />
+                                </div>
+                            </div>
+
                             {/* Pilihan: Dine In vs Take Away */}
                             <div className="bg-white rounded-2xl border border-border p-4 shadow-xs">
                                 <h3 className="text-xs font-semibold text-slate-700 mb-2">Tipe Makan</h3>
@@ -603,9 +627,6 @@ export default function CartPage() {
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2">
                                             <span className="font-bold text-xs text-secondary">Metode Pembayaran: QRIS</span>
-                                            <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/60">
-                                                Lunas Otomatis
-                                            </span>
                                         </div>
                                         <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
                                             Bayar instan langsung dari meja tanpa perlu ke kasir. Scan via e-wallet & semua m-Banking.
@@ -655,7 +676,7 @@ export default function CartPage() {
                             ) : (
                                 <>
                                     <QrCode className="w-5 h-5" />
-                                    <span>Bayar via QRIS Sekarang • {formatPrice(finalTotal)}</span>
+                                    <span>Bayar Sekarang • {formatPrice(finalTotal)}</span>
                                 </>
                             )}
                         </button>

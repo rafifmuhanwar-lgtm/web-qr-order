@@ -202,7 +202,7 @@ export default async function handler(req, res) {
             order_id: matchedOrder.id,
             customer_name: matchedOrder.customerName,
             amount_paid: amount,
-            message: `Pembayaran QRIS pesanan #${matchedOrder.id.slice(0, 8)} berhasil diverifikasi LUNAS otomatis via Payhook! ✅`,
+            message: `Pembayaran QRIS pesanan #${matchedOrder.id.slice(0, 8)} berhasil diverifikasi ✅`,
         });
     } catch (err) {
         return res.status(500).json({
