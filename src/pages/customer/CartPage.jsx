@@ -695,8 +695,7 @@ export default function CartPage() {
                                     <QrCode className="w-4 h-4" />
                                 </div>
                                 <div>
-                                    <h3 className="font-bold text-sm text-secondary">Scan Bayar QRIS</h3>
-                                    <p className="text-[10px] text-slate-400">Verifikasi instan otomatis</p>
+                                    <h3 className="font-bold text-sm text-secondary">Scan Bayar QRIS</h3>   
                                 </div>
                             </div>
                             <button
@@ -741,10 +740,6 @@ export default function CartPage() {
                                     className="w-full max-w-[210px] mx-auto rounded-xl object-contain"
                                 />
                             )}
-                            <div className="mt-2.5 flex items-center justify-center gap-1.5 text-[10px] font-bold text-emerald-800 bg-emerald-50 py-1 px-3 rounded-full border border-emerald-200/70">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-                                QRIS Dinamis • Nominal Terkunci Otomatis
-                            </div>
                         </div>
 
                         {/* Total Nominal Box */}

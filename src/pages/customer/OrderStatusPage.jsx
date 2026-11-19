@@ -232,8 +232,6 @@ export default function OrderStatusPage() {
                             />
                         )}
                         <div className="mt-2.5 flex items-center justify-center gap-1.5 text-[10px] font-bold text-emerald-800 bg-emerald-50 py-1 px-3 rounded-full border border-emerald-200">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                            QRIS Dinamis • Nominal Terkunci Otomatis
                         </div>
                     </div>
 
