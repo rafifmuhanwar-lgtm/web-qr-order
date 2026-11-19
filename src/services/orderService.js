@@ -117,8 +117,9 @@ export const subscribeToOrders = (storeId, callback, onError) => {
         }
     });
 
-    // 5. Supabase Postgres CDC Changes (as fallback)
-    const postgresChannel = supabase.channel(`realtime:orders:${storeId}`)
+    // 5. Supabase Postgres CDC Changes (Unique channel per subscriber to avoid channel collision)
+    const channelId = `realtime_orders_${storeId}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const postgresChannel = supabase.channel(channelId)
         .on('postgres_changes', {
             event: '*',
             schema: 'public',
@@ -180,8 +181,9 @@ export const subscribeToOrderStatus = (orderId, callback, onError) => {
         }
     });
 
-    // 5. Postgres Changes
-    const postgresChannel = supabase.channel(`realtime:order:${orderId}`)
+    // 5. Postgres Changes (Unique channel per subscriber)
+    const channelId = `realtime_order_${orderId}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const postgresChannel = supabase.channel(channelId)
         .on('postgres_changes', {
             event: '*',
             schema: 'public',
