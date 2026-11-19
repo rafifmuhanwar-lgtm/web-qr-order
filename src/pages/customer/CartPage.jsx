@@ -5,7 +5,7 @@ import { getStore } from '../../services/storeService';
 import { parseStoreConfig, calculateDistanceKm, calculateShippingFee } from '../../utils/deliveryUtils';
 import { validateCustomerName } from '../../utils/nameValidator';
 import { getPayhookConfig } from '../../services/payhookService';
-import { generateDynamicQris, MASTER_QRIS_STATIC } from '../../utils/qrisUtils';
+import { generateDynamicQris, generateUniqueAmount, MASTER_QRIS_STATIC } from '../../utils/qrisUtils';
 import { QRCodeSVG } from 'qrcode.react';
 import {
     ArrowLeft,
@@ -201,6 +201,17 @@ export default function CartPage() {
             localStorage.setItem('emakan_customer_name', sanitizedName);
         }
 
+        // 1. Generate Kode Unik 3 Digit untuk Payhook
+        const payhookCfg = getPayhookConfig();
+        let uniqueCode = 0;
+        let payAmount = finalTotal;
+
+        if (payhookCfg?.useUniqueCode !== false) {
+            const uniqueInfo = generateUniqueAmount(finalTotal, `${storeId}_${tableId || 'online'}_${Date.now()}`);
+            uniqueCode = uniqueInfo.uniqueCode;
+            payAmount = uniqueInfo.totalAmount;
+        }
+
         const orderData = {
             storeId,
             tableId: tableId || null,
@@ -219,7 +230,9 @@ export default function CartPage() {
                 quantity: item.quantity,
                 notes: item.notes || '',
             })),
-            totalPrice: finalTotal,
+            baseTotal: finalTotal,
+            uniqueCode: uniqueCode,
+            totalPrice: payAmount, // Nominal dengan 3 digit kode unik agar Payhook otomatis mendeteksi mutasi bank
             notes: cart.map(i => i.notes ? `${i.name}: ${i.notes}` : '').filter(Boolean).join(' | '),
             userNotes: cart.map(i => i.notes ? `${i.name}: ${i.notes}` : '').filter(Boolean).join(' | '),
             orderType: finalOrderType,
@@ -228,10 +241,9 @@ export default function CartPage() {
             status: 'pending',
         };
 
-        // Prepare Dynamic QRIS Code
-        const payhookCfg = getPayhookConfig();
+        // 2. Prepare Dynamic QRIS Code dengan nominal terkunci otomatis (termasuk kode unik)
         const rawStatic = payhookCfg?.rawStaticQris || MASTER_QRIS_STATIC;
-        const dynamicCode = generateDynamicQris(rawStatic, finalTotal);
+        const dynamicCode = generateDynamicQris(rawStatic, payAmount);
 
         setQrisPayload(dynamicCode);
         setPendingOrderPayload(orderData);
@@ -743,16 +755,16 @@ export default function CartPage() {
                         </div>
 
                         {/* Total Nominal Box */}
-                        <div className="bg-orange-50 border border-orange-200/80 rounded-2xl p-3 text-center space-y-0.5">
-                            <span className="text-[11px] font-medium text-orange-800">Total Tagihan yang Harus Dibayar:</span>
+                        <div className="bg-orange-50 border border-orange-200/80 rounded-2xl p-3.5 text-center space-y-1.5">
+                            <span className="text-[11px] font-medium text-orange-800">Total Nominal yang Harus Ditransfer:</span>
                             <div className="flex items-center justify-center gap-2">
                                 <span className="text-2xl font-black text-orange-600 font-mono tracking-tight">
-                                    {formatPrice(finalTotal)}
+                                    {formatPrice(pendingOrderPayload?.totalPrice || finalTotal)}
                                 </span>
                                 <button
                                     type="button"
                                     onClick={() => {
-                                        navigator.clipboard.writeText(String(finalTotal));
+                                        navigator.clipboard.writeText(String(pendingOrderPayload?.totalPrice || finalTotal));
                                         toast.success('Nominal disalin!');
                                     }}
                                     className="p-1 text-orange-600 hover:text-orange-800 hover:bg-orange-100 rounded-lg transition-colors cursor-pointer"
@@ -761,6 +773,27 @@ export default function CartPage() {
                                     <Copy className="w-4 h-4" />
                                 </button>
                             </div>
+
+                            {pendingOrderPayload?.uniqueCode > 0 && (
+                                <div className="pt-2 border-t border-orange-200/70 space-y-1 text-left">
+                                    <div className="flex items-center justify-between text-[11px] text-orange-950/80">
+                                        <span>Total Tagihan:</span>
+                                        <span>{formatPrice(pendingOrderPayload.baseTotal)}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between text-[11px] font-bold text-orange-900">
+                                        <span className="flex items-center gap-1">
+                                            <Sparkles className="w-3 h-3 text-primary" />
+                                            Kode Unik Payhook:
+                                        </span>
+                                        <span className="bg-orange-200/80 text-orange-950 font-mono px-2 py-0.5 rounded text-xs">
+                                            +{pendingOrderPayload.uniqueCode}
+                                        </span>
+                                    </div>
+                                    <p className="text-[10px] text-orange-700/80 pt-0.5 leading-snug">
+                                        *Transfer persis sesuai nominal + 3 digit kode unik agar pembayaran terverifikasi otomatis oleh sistem Payhook.
+                                    </p>
+                                </div>
+                            )}
                         </div>
 
                         {/* Petunjuk Singkat */}

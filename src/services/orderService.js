@@ -39,6 +39,9 @@ export const createOrder = async (orderData) => {
         shippingFee: orderData.shippingFee || 0,
         courierTip: orderData.courierTip || 0,
         userNotes: orderData.userNotes || orderData.notes || '',
+        uniqueCode: orderData.uniqueCode || 0,
+        baseAmount: orderData.baseTotal || orderData.totalPrice || 0,
+        payAmount: orderData.totalPrice || 0,
         chats: [],
     };
 
