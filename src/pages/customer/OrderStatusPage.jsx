@@ -63,8 +63,9 @@ export default function OrderStatusPage() {
     const dynamicQris = useMemo(() => {
         if (!order?.totalPrice) return '';
         const rawStatic = getPayhookConfig().rawStaticQris || MASTER_QRIS_STATIC;
-        return generateDynamicQris(rawStatic, order.totalPrice);
-    }, [order]);
+        const targetAmount = delivery.payAmount || order.totalPrice;
+        return generateDynamicQris(rawStatic, targetAmount);
+    }, [order, delivery.payAmount]);
 
     // 4-Step Dynamic Flow
     const steps = useMemo(() => {

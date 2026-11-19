@@ -117,6 +117,9 @@ export function parseOrderDelivery(order) {
         shippingFee: order.shippingFee || delivery.shippingFee || 0,
         courierTip: order.courierTip || delivery.courierTip || 0,
         userNotes: delivery.userNotes || delivery.notes || '',
+        uniqueCode: delivery.uniqueCode || 0,
+        baseAmount: delivery.baseAmount || order.totalPrice || 0,
+        payAmount: delivery.payAmount || order.totalPrice || 0,
         chats: Array.isArray(delivery.chats) ? delivery.chats : [],
     };
 }

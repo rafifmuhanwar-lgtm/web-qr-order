@@ -123,11 +123,15 @@ export default async function handler(req, res) {
                 const orderPrice = Number(o.totalPrice) || 0;
                 if (orderPrice === amount) return true;
 
-                // Cek jika ada payAmount di dalam notes JSON
+                // Cek jika ada payAmount di dalam notes JSON atau match totalPrice + uniqueCode
                 if (o.notes && typeof o.notes === 'string' && o.notes.startsWith('{')) {
                     try {
                         const parsed = JSON.parse(o.notes);
-                        if (parsed.payAmount === amount || parsed.totalAmount === amount) {
+                        if (
+                            parsed.payAmount === amount ||
+                            parsed.totalAmount === amount ||
+                            (orderPrice + (Number(parsed.uniqueCode) || 0) === amount)
+                        ) {
                             return true;
                         }
                     } catch {

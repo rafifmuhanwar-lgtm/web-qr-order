@@ -232,7 +232,8 @@ export default function CartPage() {
             })),
             baseTotal: finalTotal,
             uniqueCode: uniqueCode,
-            totalPrice: payAmount, // Nominal dengan 3 digit kode unik agar Payhook otomatis mendeteksi mutasi bank
+            payAmount: payAmount, // Nominal transfer QRIS (termasuk kode unik untuk mutasi bank)
+            totalPrice: finalTotal, // Nominal asli pesanan yang masuk pembukuan & dashboard admin (tanpa kode unik)
             notes: cart.map(i => i.notes ? `${i.name}: ${i.notes}` : '').filter(Boolean).join(' | '),
             userNotes: cart.map(i => i.notes ? `${i.name}: ${i.notes}` : '').filter(Boolean).join(' | '),
             orderType: finalOrderType,

@@ -41,7 +41,7 @@ export const createOrder = async (orderData) => {
         userNotes: orderData.userNotes || orderData.notes || '',
         uniqueCode: orderData.uniqueCode || 0,
         baseAmount: orderData.baseTotal || orderData.totalPrice || 0,
-        payAmount: orderData.totalPrice || 0,
+        payAmount: orderData.payAmount || orderData.totalPrice || 0,
         chats: [],
     };
 
