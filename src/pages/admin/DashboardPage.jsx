@@ -74,6 +74,11 @@ export default function DashboardPage() {
         return d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
     };
 
+    const walletSummary = useMemo(() => {
+        const withdrawals = Array.isArray(storeData?.withdrawals) ? storeData.withdrawals : [];
+        return calculateWalletSummary(orders, withdrawals);
+    }, [orders, storeData?.withdrawals]);
+
     if (loading) return <Spinner />;
 
     const stats = [
@@ -82,11 +87,6 @@ export default function DashboardPage() {
         { label: 'Menunggu', value: pendingOrders.length, icon: Clock, color: 'bg-amber-500', light: 'bg-amber-50' },
         { label: 'Total Pesanan', value: foodOrders.length, icon: TrendingUp, color: 'bg-purple-500', light: 'bg-purple-50' },
     ];
-
-    const walletSummary = useMemo(() => {
-        const withdrawals = Array.isArray(storeData?.withdrawals) ? storeData.withdrawals : [];
-        return calculateWalletSummary(orders, withdrawals);
-    }, [orders, storeData?.withdrawals]);
 
     return (
         <div className="animate-fade-in space-y-6">
