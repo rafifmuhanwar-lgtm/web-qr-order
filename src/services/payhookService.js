@@ -26,8 +26,8 @@ export function getPayhookConfig() {
         const saved = localStorage.getItem(PAYHOOK_STORAGE_KEY);
         if (saved) {
             const parsed = JSON.parse(saved);
-            // Auto upgrade if still using legacy chiropractic/bypipx static QRIS
-            if (parsed.rawStaticQris && parsed.rawStaticQris.includes('bypipx')) {
+            // Auto upgrade if still using older static QRIS
+            if (parsed.rawStaticQris !== MASTER_QRIS_STATIC) {
                 const upgraded = {
                     ...parsed,
                     rawStaticQris: MASTER_QRIS_STATIC,
