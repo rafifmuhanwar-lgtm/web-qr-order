@@ -34,6 +34,8 @@ export const getStore = async (storeId) => {
         whatsapp: extra.whatsapp || '',
         menuLayout: extra.menuLayout || 'banner',
         categoryBanners: extra.categoryBanners || {},
+        bankAccount: extra.bankAccount || null,
+        withdrawals: Array.isArray(extra.withdrawals) ? extra.withdrawals : [],
         deliverySettings: extra,
     };
 };

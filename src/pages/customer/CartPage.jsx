@@ -756,7 +756,7 @@ export default function CartPage() {
 
                         {/* Total Nominal Box */}
                         <div className="bg-orange-50 border border-orange-200/80 rounded-2xl p-3.5 text-center space-y-1.5">
-                            <span className="text-[11px] font-medium text-orange-800">Total Nominal yang Harus Ditransfer:</span>
+                            <span className="text-[11px] font-medium text-orange-800">Total Nominal yang Harus di Bayar:</span>
                             <div className="flex items-center justify-center gap-2">
                                 <span className="text-2xl font-black text-orange-600 font-mono tracking-tight">
                                     {formatPrice(pendingOrderPayload?.totalPrice || finalTotal)}
@@ -783,14 +783,14 @@ export default function CartPage() {
                                     <div className="flex items-center justify-between text-[11px] font-bold text-orange-900">
                                         <span className="flex items-center gap-1">
                                             <Sparkles className="w-3 h-3 text-primary" />
-                                            Kode Unik Payhook:
+                                            Kode Unik:
                                         </span>
                                         <span className="bg-orange-200/80 text-orange-950 font-mono px-2 py-0.5 rounded text-xs">
                                             +{pendingOrderPayload.uniqueCode}
                                         </span>
                                     </div>
                                     <p className="text-[10px] text-orange-700/80 pt-0.5 leading-snug">
-                                        *Transfer persis sesuai nominal + 3 digit kode unik agar pembayaran terverifikasi otomatis oleh sistem Payhook.
+                                        *Silahkan Scan sesuai nominal + 3 digit kode unik agar pembayaran terverifikasi otomatis oleh sistem.
                                     </p>
                                 </div>
                             )}
@@ -799,8 +799,8 @@ export default function CartPage() {
                         {/* Petunjuk Singkat */}
                         <div className="bg-slate-50 rounded-xl p-3 text-[11px] text-slate-500 space-y-1">
                             <p className="font-semibold text-slate-700">Cara Pembayaran:</p>
-                            <p>1. Buka GoPay, OVO, Dana, ShopeePay, atau m-Banking pilihan Anda.</p>
-                            <p>2. Scan kode QRIS di atas. Nominal sudah terkunci otomatis.</p>
+                            <p>1. Buka e-wallet, atau m-Banking pilihan Anda.</p>
+                            <p>2. Scan kode QRIS di atas. Nominal sudah tertera otomatis.</p>
                             <p>3. Selesaikan transfer, lalu klik tombol konfirmasi di bawah.</p>
                         </div>
 
@@ -820,7 +820,7 @@ export default function CartPage() {
                                 ) : (
                                     <>
                                         <CheckCircle2 className="w-4 h-4" />
-                                        <span>Saya Sudah Bayar (Kirim ke Dapur)</span>
+                                        <span>Saya Sudah Bayar</span>
                                     </>
                                 )}
                             </button>

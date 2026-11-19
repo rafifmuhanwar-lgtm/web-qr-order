@@ -19,11 +19,13 @@ import {
     Shield,
     MessageSquare,
     Bell,
+    Wallet,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const navItems = [
     { to: '/admin', icon: LayoutDashboard, label: 'Dashboard', end: true },
+    { to: '/admin/wallet', icon: Wallet, label: 'Saldo & Penarikan' },
     { to: '/admin/menu', icon: UtensilsCrossed, label: 'Menu' },
     { to: '/admin/categories', icon: FolderOpen, label: 'Kategori' },
     { to: '/admin/tables', icon: Store, label: 'Meja' },
@@ -36,6 +38,7 @@ const navItems = [
 
 const pageNameMap = {
     '/admin': 'Dashboard Utama',
+    '/admin/wallet': 'Saldo & Penarikan',
     '/admin/menu': 'Menu',
     '/admin/categories': 'Kategori',
     '/admin/tables': 'Meja Resto',

@@ -16,6 +16,7 @@ import OrderStatusPage from './pages/customer/OrderStatusPage';
 // Admin Pages
 import LoginPage from './pages/admin/LoginPage';
 import DashboardPage from './pages/admin/DashboardPage';
+import WalletPage from './pages/admin/WalletPage';
 import MenuManagePage from './pages/admin/MenuManagePage';
 import CategoryPage from './pages/admin/CategoryPage';
 import TablePage from './pages/admin/TablePage';
@@ -62,6 +63,7 @@ function AppRoutes() {
         }
       >
         <Route index element={<DashboardPage />} />
+        <Route path="wallet" element={<WalletPage />} />
         <Route path="menu" element={<MenuManagePage />} />
         <Route path="categories" element={<CategoryPage />} />
         <Route path="tables" element={<TablePage />} />

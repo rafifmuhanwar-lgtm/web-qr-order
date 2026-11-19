@@ -1,12 +1,25 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { subscribeToOrders } from '../../services/orderService';
-import { ShoppingBag, DollarSign, Clock, TrendingUp, ChefHat, Bike } from 'lucide-react';
+import { calculateWalletSummary } from '../../services/walletService';
+import {
+    ShoppingBag,
+    DollarSign,
+    Clock,
+    TrendingUp,
+    ChefHat,
+    Bike,
+    Wallet,
+    ArrowUpRight,
+    ShieldCheck,
+} from 'lucide-react';
 import Badge from '../../components/ui/Badge';
 import Spinner from '../../components/ui/Spinner';
 
 export default function DashboardPage() {
     const { storeId, storeData } = useAuth();
+    const navigate = useNavigate();
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -70,11 +83,57 @@ export default function DashboardPage() {
         { label: 'Total Pesanan', value: foodOrders.length, icon: TrendingUp, color: 'bg-purple-500', light: 'bg-purple-50' },
     ];
 
+    const walletSummary = useMemo(() => {
+        const withdrawals = Array.isArray(storeData?.withdrawals) ? storeData.withdrawals : [];
+        return calculateWalletSummary(orders, withdrawals);
+    }, [orders, storeData?.withdrawals]);
+
     return (
         <div className="animate-fade-in space-y-6">
             <div>
                 <h1 className="text-2xl font-bold text-secondary">Dashboard</h1>
                 <p className="text-slate-500 text-sm mt-1">Selamat datang di panel admin {storeData?.name || 'toko Anda'}</p>
+            </div>
+
+            {/* Escrow Balance Card */}
+            <div className="bg-gradient-to-br from-secondary via-slate-900 to-slate-800 rounded-3xl p-5 sm:p-6 text-white shadow-lg relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-5 border border-slate-700/50">
+                <div className="space-y-1.5 relative z-10">
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-primary bg-primary/20 px-2.5 py-0.5 rounded-full border border-primary/30 inline-flex items-center gap-1.5">
+                            <ShieldCheck className="w-3.5 h-3.5 text-primary" />
+                            Saldo Dompet Escrow (QRIS)
+                        </span>
+                        {walletSummary.pendingBalance > 0 && (
+                            <span className="text-[10px] font-semibold text-amber-300 bg-amber-400/20 px-2 py-0.5 rounded-full border border-amber-400/30">
+                                Proses Transfer: {formatPrice(walletSummary.pendingBalance)}
+                            </span>
+                        )}
+                    </div>
+                    <p className="text-xs text-slate-300 font-medium pt-0.5">Saldo Tersedia untuk Ditarik:</p>
+                    <p className="text-2xl sm:text-3xl font-extrabold text-white font-mono tracking-tight">
+                        {formatPrice(walletSummary.availableBalance)}
+                    </p>
+                    <p className="text-[11px] text-slate-400">
+                        Total Pemasukan QRIS: {formatPrice(walletSummary.grossRevenue)} • Sudah Dicairkan: {formatPrice(walletSummary.totalWithdrawn)}
+                    </p>
+                </div>
+                <div className="flex items-center gap-2.5 self-start md:self-auto relative z-10">
+                    <button
+                        type="button"
+                        onClick={() => navigate('/admin/wallet')}
+                        className="px-4 py-2.5 rounded-xl bg-primary hover:bg-primary-dark text-white font-bold text-xs shadow-md shadow-primary/25 transition-all cursor-pointer flex items-center gap-1.5"
+                    >
+                        <ArrowUpRight className="w-4 h-4" />
+                        <span>Tarik Saldo</span>
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => navigate('/admin/wallet')}
+                        className="px-3.5 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-semibold text-xs border border-white/10 transition-colors cursor-pointer"
+                    >
+                        Riwayat & Rekening
+                    </button>
+                </div>
             </div>
 
             {/* Stats Grid */}

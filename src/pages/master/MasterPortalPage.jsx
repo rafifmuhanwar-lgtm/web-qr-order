@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../config/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import Spinner from '../../components/ui/Spinner';
@@ -9,6 +9,7 @@ import {
     pingPayhookWebhook,
     simulatePayhookNotification,
 } from '../../services/payhookService';
+import { updateWithdrawalStatus } from '../../services/walletService';
 import {
     generateDynamicQris,
     MASTER_QRIS_STATIC,
@@ -42,6 +43,10 @@ import {
     Users,
     Info,
     ChevronRight,
+    Wallet,
+    AlertCircle,
+    XCircle,
+    CheckCircle,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -64,6 +69,8 @@ export default function MasterPortalPage() {
     // Search filters
     const [searchOrder, setSearchOrder] = useState('');
     const [searchStore, setSearchStore] = useState('');
+    const [searchWithdrawal, setSearchWithdrawal] = useState('');
+    const [withdrawalFilter, setWithdrawalFilter] = useState('all'); // all, pending, completed, rejected
 
     // Webhook actions
     const [isPinging, setIsPinging] = useState(false);
@@ -105,6 +112,97 @@ export default function MasterPortalPage() {
     const pendingPayhookOrders = orders.filter(
         (o) => o.paymentStatus !== 'paid' && o.paymentMethod !== 'cash'
     );
+
+    // Escrow & Withdrawals Data Aggregation
+    const allWithdrawals = useMemo(() => {
+        const list = [];
+        stores.forEach((s) => {
+            let extra = {};
+            if (s.address && typeof s.address === 'string' && s.address.startsWith('{')) {
+                try {
+                    extra = JSON.parse(s.address);
+                } catch {
+                    extra = {};
+                }
+            }
+            const storeWithdrawals = Array.isArray(extra.withdrawals) ? extra.withdrawals : [];
+            storeWithdrawals.forEach((w) => {
+                list.push({
+                    ...w,
+                    storeName: s.name || 'Cabang Resto',
+                    storeId: s.id,
+                });
+            });
+        });
+        return list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    }, [stores]);
+
+    const pendingWithdrawals = useMemo(() => {
+        return allWithdrawals.filter((w) => w.status === 'pending');
+    }, [allWithdrawals]);
+
+    const completedWithdrawals = useMemo(() => {
+        return allWithdrawals.filter((w) => w.status === 'completed');
+    }, [allWithdrawals]);
+
+    const rejectedWithdrawals = useMemo(() => {
+        return allWithdrawals.filter((w) => w.status === 'rejected');
+    }, [allWithdrawals]);
+
+    const totalPendingPayout = useMemo(() => {
+        return pendingWithdrawals.reduce((sum, w) => sum + (Number(w.amount) || 0), 0);
+    }, [pendingWithdrawals]);
+
+    const totalCompletedPayout = useMemo(() => {
+        return completedWithdrawals.reduce((sum, w) => sum + (Number(w.amount) || 0), 0);
+    }, [completedWithdrawals]);
+
+    const filteredWithdrawals = useMemo(() => {
+        return allWithdrawals.filter((w) => {
+            if (withdrawalFilter !== 'all' && w.status !== withdrawalFilter) {
+                return false;
+            }
+            if (!searchWithdrawal) return true;
+            const query = searchWithdrawal.toLowerCase();
+            return (
+                w.id?.toLowerCase().includes(query) ||
+                w.storeName?.toLowerCase().includes(query) ||
+                w.bankName?.toLowerCase().includes(query) ||
+                w.accountNumber?.toLowerCase().includes(query) ||
+                w.accountHolder?.toLowerCase().includes(query)
+            );
+        });
+    }, [allWithdrawals, withdrawalFilter, searchWithdrawal]);
+
+    const handleCompleteWithdrawal = async (storeId, withdrawalId) => {
+        const confirmTransfer = window.confirm(
+            'Apakah dana transfer pencairan sudah berhasil dikirimkan ke rekening merchant?\\n\\nKlik OK untuk menandai pencairan ini sebagai SELESAI.'
+        );
+        if (!confirmTransfer) return;
+
+        const toastId = toast.loading('Memproses konfirmasi pencairan...');
+        try {
+            await updateWithdrawalStatus(storeId, withdrawalId, 'completed');
+            toast.success('Pencairan berhasil ditandai selesai!', { id: toastId });
+            await fetchAllData();
+        } catch (err) {
+            toast.error(err.message || 'Gagal memperbarui status penarikan', { id: toastId });
+        }
+    };
+
+    const handleRejectWithdrawal = async (storeId, withdrawalId) => {
+        const reason = window.prompt('Masukkan alasan penolakan pencairan (misal: Nomor Rekening Tidak Valid):');
+        if (reason === null) return;
+
+        const toastId = toast.loading('Memproses penolakan pencairan...');
+        try {
+            await updateWithdrawalStatus(storeId, withdrawalId, 'rejected', reason || 'Ditolak oleh Superadmin');
+            toast.success('Pengajuan ditolak & saldo dikembalikan ke resto', { id: toastId });
+            await fetchAllData();
+        } catch (err) {
+            toast.error(err.message || 'Gagal menolak penarikan', { id: toastId });
+        }
+    };
 
     const handleSavePayhookConfig = (e) => {
         e.preventDefault();
@@ -254,6 +352,12 @@ export default function MasterPortalPage() {
                 <div className="flex items-center gap-1.5 p-1 bg-[#0e1422] rounded-xl border border-slate-800/80 overflow-x-auto">
                     {[
                         { id: 'overview', label: 'Ringkasan Platform', icon: Layers },
+                        {
+                            id: 'withdrawals',
+                            label: `Penarikan Saldo ${pendingWithdrawals.length > 0 ? `(${pendingWithdrawals.length} Baru)` : `(${allWithdrawals.length})`}`,
+                            icon: Wallet,
+                            badge: pendingWithdrawals.length > 0 ? pendingWithdrawals.length : null,
+                        },
                         { id: 'payhook', label: 'Payhook QRIS Hub', icon: CreditCard },
                         { id: 'orders', label: `Transaksi Global (${orders.length})`, icon: ShoppingBag },
                         { id: 'stores', label: `Merchant Toko (${stores.length})`, icon: Store },
@@ -273,6 +377,11 @@ export default function MasterPortalPage() {
                             >
                                 <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-emerald-400' : 'text-slate-500'}`} />
                                 <span>{tab.label}</span>
+                                {tab.badge && (
+                                    <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-slate-950">
+                                        {tab.badge}
+                                    </span>
+                                )}
                             </button>
                         );
                     })}
@@ -285,7 +394,7 @@ export default function MasterPortalPage() {
                 {activeTab === 'overview' && (
                     <div className="space-y-6">
                         {/* Metrics Cards */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                             <div className="bg-[#0e1422] border border-slate-800 rounded-xl p-5">
                                 <div className="flex items-center justify-between text-slate-400 mb-2">
                                     <span className="text-xs font-medium">Platform GMV (Lunas)</span>
@@ -324,14 +433,28 @@ export default function MasterPortalPage() {
 
                             <div className="bg-[#0e1422] border border-slate-800 rounded-xl p-5">
                                 <div className="flex items-center justify-between text-slate-400 mb-2">
-                                    <span className="text-xs font-medium">Antrean QRIS Pending</span>
-                                    <Clock className="w-4 h-4 text-amber-400" />
+                                    <span className="text-xs font-medium">Pending Penarikan</span>
+                                    <Wallet className="w-4 h-4 text-amber-400" />
                                 </div>
                                 <h3 className="text-2xl font-bold text-amber-400 tracking-tight">
+                                    Rp {totalPendingPayout.toLocaleString('id-ID')}
+                                </h3>
+                                <p className="text-[11px] text-amber-400 mt-2 flex items-center gap-1">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                                    <span>{pendingWithdrawals.length} pengajuan perlu ditransfer</span>
+                                </p>
+                            </div>
+
+                            <div className="bg-[#0e1422] border border-slate-800 rounded-xl p-5">
+                                <div className="flex items-center justify-between text-slate-400 mb-2">
+                                    <span className="text-xs font-medium">Antrean QRIS Pending</span>
+                                    <Clock className="w-4 h-4 text-slate-400" />
+                                </div>
+                                <h3 className="text-2xl font-bold text-slate-300 tracking-tight">
                                     {pendingPayhookOrders.length}
                                 </h3>
                                 <p className="text-[11px] text-slate-400 mt-2">
-                                    Menunggu notifikasi mutasi / verifikasi
+                                    Menunggu notifikasi mutasi QRIS
                                 </p>
                             </div>
                         </div>
@@ -435,7 +558,263 @@ export default function MasterPortalPage() {
                     </div>
                 )}
 
-                {/* 2. TAB PAYHOOK QRIS HUB - Clean Developer Console */}
+                {/* 2. TAB WITHDRAWALS / ESCROW SETTLEMENT */}
+                {activeTab === 'withdrawals' && (
+                    <div className="space-y-6">
+                        {/* Escrow Quick KPI row */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div className="bg-[#0e1422] border border-slate-800 rounded-xl p-5">
+                                <div className="flex items-center justify-between text-slate-400 mb-2">
+                                    <span className="text-xs font-medium">Menunggu Transfer (Pending)</span>
+                                    <Clock className="w-4 h-4 text-amber-400" />
+                                </div>
+                                <h3 className="text-2xl font-bold text-amber-400 tracking-tight">
+                                    Rp {totalPendingPayout.toLocaleString('id-ID')}
+                                </h3>
+                                <p className="text-[11px] text-slate-400 mt-2">
+                                    {pendingWithdrawals.length} pengajuan pencairan dari merchant
+                                </p>
+                            </div>
+
+                            <div className="bg-[#0e1422] border border-slate-800 rounded-xl p-5">
+                                <div className="flex items-center justify-between text-slate-400 mb-2">
+                                    <span className="text-xs font-medium">Total Berhasil Ditransfer</span>
+                                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                                </div>
+                                <h3 className="text-2xl font-bold text-emerald-400 tracking-tight">
+                                    Rp {totalCompletedPayout.toLocaleString('id-ID')}
+                                </h3>
+                                <p className="text-[11px] text-slate-400 mt-2">
+                                    {completedWithdrawals.length} penarikan telah diselesaikan
+                                </p>
+                            </div>
+
+                            <div className="bg-[#0e1422] border border-slate-800 rounded-xl p-5">
+                                <div className="flex items-center justify-between text-slate-400 mb-2">
+                                    <span className="text-xs font-medium">Total Riwayat Pengajuan</span>
+                                    <Wallet className="w-4 h-4 text-slate-300" />
+                                </div>
+                                <h3 className="text-2xl font-bold text-white tracking-tight">
+                                    {allWithdrawals.length}
+                                </h3>
+                                <p className="text-[11px] text-slate-400 mt-2">
+                                    Semua transaksi penarikan toko terdaftar
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Withdrawals Table Card */}
+                        <div className="bg-[#0e1422] border border-slate-800 rounded-xl p-5 sm:p-6 space-y-4">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+                                <div>
+                                    <h2 className="text-sm font-semibold text-white flex items-center gap-2">
+                                        <Wallet className="w-4 h-4 text-emerald-400" />
+                                        <span>Daftar Permintaan Pencairan Dana Merchant</span>
+                                    </h2>
+                                    <p className="text-xs text-slate-400">
+                                        Periksa nomor rekening tujuan, transfer via mobile banking, lalu tandai transfer selesai
+                                    </p>
+                                </div>
+
+                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                                    {/* Filter Pills */}
+                                    <div className="flex items-center gap-1 bg-[#090d16] p-1 rounded-lg border border-slate-800 text-xs">
+                                        {[
+                                            { id: 'all', label: `Semua (${allWithdrawals.length})` },
+                                            { id: 'pending', label: `Pending (${pendingWithdrawals.length})` },
+                                            { id: 'completed', label: `Selesai (${completedWithdrawals.length})` },
+                                            { id: 'rejected', label: `Ditolak (${rejectedWithdrawals.length})` },
+                                        ].map((f) => (
+                                            <button
+                                                key={f.id}
+                                                onClick={() => setWithdrawalFilter(f.id)}
+                                                className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors cursor-pointer ${
+                                                    withdrawalFilter === f.id
+                                                        ? 'bg-slate-800 text-white shadow-xs'
+                                                        : 'text-slate-400 hover:text-slate-200'
+                                                }`}
+                                            >
+                                                {f.label}
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    {/* Search Bar */}
+                                    <div className="relative w-full sm:w-60">
+                                        <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-2.5" />
+                                        <input
+                                            type="text"
+                                            placeholder="Cari toko, rekening, ID..."
+                                            value={searchWithdrawal}
+                                            onChange={(e) => setSearchWithdrawal(e.target.value)}
+                                            className="w-full pl-9 pr-3 py-1.5 bg-[#090d16] border border-slate-800 rounded-lg text-xs text-white focus:outline-none focus:border-slate-600"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Table */}
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left text-xs">
+                                    <thead>
+                                        <tr className="border-b border-slate-800 text-slate-400 uppercase text-[10px] tracking-wider">
+                                            <th className="py-2.5 px-3">ID & Waktu</th>
+                                            <th className="py-2.5 px-3">Merchant Toko</th>
+                                            <th className="py-2.5 px-3">Rekening Pencairan</th>
+                                            <th className="py-2.5 px-3">Nominal Pencairan</th>
+                                            <th className="py-2.5 px-3">Status</th>
+                                            <th className="py-2.5 px-3 text-right">Tindakan Superadmin</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-800/60">
+                                        {filteredWithdrawals.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={6} className="text-center py-10 text-slate-500">
+                                                    Tidak ada pengajuan pencairan dana yang cocok
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            filteredWithdrawals.map((w) => {
+                                                const isPending = w.status === 'pending';
+                                                const isCompleted = w.status === 'completed';
+                                                const isRejected = w.status === 'rejected';
+
+                                                return (
+                                                    <tr key={w.id} className="hover:bg-slate-800/30 transition-colors">
+                                                        <td className="py-3 px-3">
+                                                            <div className="font-mono font-medium text-slate-300">
+                                                                {w.id}
+                                                            </div>
+                                                            <div className="text-[11px] text-slate-500">
+                                                                {w.createdAt
+                                                                    ? new Date(w.createdAt).toLocaleString('id-ID', {
+                                                                          day: 'numeric',
+                                                                          month: 'short',
+                                                                          year: 'numeric',
+                                                                          hour: '2-digit',
+                                                                          minute: '2-digit',
+                                                                      })
+                                                                    : '-'}
+                                                            </div>
+                                                        </td>
+
+                                                        <td className="py-3 px-3">
+                                                            <div className="font-semibold text-white">{w.storeName}</div>
+                                                            <div className="font-mono text-[10px] text-slate-500 truncate max-w-[140px]">
+                                                                {w.storeId}
+                                                            </div>
+                                                        </td>
+
+                                                        <td className="py-3 px-3">
+                                                            <div className="flex items-center gap-1.5">
+                                                                <span className="font-semibold text-white">{w.bankName}</span>
+                                                                <button
+                                                                    onClick={() => handleCopy(w.accountNumber, w.id)}
+                                                                    title="Salin Nomor Rekening"
+                                                                    className="p-1 hover:bg-slate-800 text-slate-400 hover:text-white rounded cursor-pointer"
+                                                                >
+                                                                    {copiedField === w.id ? (
+                                                                        <Check className="w-3 h-3 text-emerald-400" />
+                                                                    ) : (
+                                                                        <Copy className="w-3 h-3" />
+                                                                    )}
+                                                                </button>
+                                                            </div>
+                                                            <div className="font-mono text-slate-300 tracking-wider">
+                                                                {w.accountNumber}
+                                                            </div>
+                                                            <div className="text-[11px] text-slate-400">
+                                                                a.n. <span className="text-slate-200">{w.accountHolder}</span>
+                                                            </div>
+                                                        </td>
+
+                                                        <td className="py-3 px-3">
+                                                            <div className="font-mono text-sm font-bold text-emerald-400">
+                                                                Rp {Number(w.amount || 0).toLocaleString('id-ID')}
+                                                            </div>
+                                                            {w.notes && (
+                                                                <div className="text-[10px] text-slate-400 truncate max-w-[150px]" title={w.notes}>
+                                                                    {w.notes}
+                                                                </div>
+                                                            )}
+                                                        </td>
+
+                                                        <td className="py-3 px-3">
+                                                            {isPending && (
+                                                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                                                    <Clock className="w-3 h-3" /> Menunggu Transfer
+                                                                </span>
+                                                            )}
+                                                            {isCompleted && (
+                                                                <div>
+                                                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                                                        <CheckCircle2 className="w-3 h-3" /> Selesai Ditransfer
+                                                                    </span>
+                                                                    {w.completedAt && (
+                                                                        <div className="text-[10px] text-slate-500 mt-1">
+                                                                            {new Date(w.completedAt).toLocaleString('id-ID', {
+                                                                                day: 'numeric',
+                                                                                month: 'short',
+                                                                                hour: '2-digit',
+                                                                                minute: '2-digit',
+                                                                            })}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                            {isRejected && (
+                                                                <div>
+                                                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                                                                        <XCircle className="w-3 h-3" /> Ditolak
+                                                                    </span>
+                                                                    {w.rejectReason && (
+                                                                        <div className="text-[10px] text-rose-300 mt-0.5 truncate max-w-[130px]" title={w.rejectReason}>
+                                                                            {w.rejectReason}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </td>
+
+                                                        <td className="py-3 px-3 text-right">
+                                                            {isPending ? (
+                                                                <div className="flex items-center justify-end gap-2">
+                                                                    <button
+                                                                        onClick={() => handleCompleteWithdrawal(w.storeId, w.id)}
+                                                                        className="flex items-center gap-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                                                                    >
+                                                                        <Check className="w-3.5 h-3.5" />
+                                                                        <span>Tandai Selesai</span>
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => handleRejectWithdrawal(w.storeId, w.id)}
+                                                                        className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-900 hover:bg-rose-950/60 text-slate-400 hover:text-rose-400 border border-slate-800 hover:border-rose-800/60 rounded-lg text-xs transition-colors cursor-pointer"
+                                                                    >
+                                                                        <span>Tolak</span>
+                                                                    </button>
+                                                                </div>
+                                                            ) : isCompleted ? (
+                                                                <span className="text-[11px] text-slate-500">
+                                                                    Lunas terbayar
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-[11px] text-slate-500">
+                                                                    Saldo dikembalikan
+                                                                </span>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* 3. TAB PAYHOOK QRIS HUB - Clean Developer Console */}
                 {activeTab === 'payhook' && (
                     <div className="space-y-6">
                         {/* Header Banner - Clean Developer Console Style */}
