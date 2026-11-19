@@ -69,20 +69,29 @@ export default function AdminLayout() {
             storeId,
             (orders) => {
                 const foodOrders = orders.filter(
-                    (o) => o.orderType !== 'customer_chat' && o.orderType !== 'inquiry'
+                    (o) => o.orderType !== 'customer_chat' && 
+                           o.orderType !== 'inquiry' && 
+                           o.status !== 'waiting_payment' && 
+                           o.paymentStatus === 'paid'
                 );
                 const pendingOrders = foodOrders.filter((o) => o.status === 'pending');
                 setPendingCount(pendingOrders.length);
 
-                // Initial snapshot: record existing IDs without triggering alerts
+                // Initial snapshot: record existing paid IDs without triggering alerts
                 if (isInitialLoad.current) {
-                    knownOrderIds.current = new Set(orders.map((o) => o.id));
+                    knownOrderIds.current = new Set(
+                        orders.filter((o) => o.paymentStatus === 'paid').map((o) => o.id)
+                    );
                     isInitialLoad.current = false;
                     return;
                 }
 
-                // Detect newly arrived orders
-                const newOrders = orders.filter((o) => !knownOrderIds.current.has(o.id));
+                // Detect newly arrived paid orders
+                const newOrders = orders.filter(
+                    (o) => !knownOrderIds.current.has(o.id) && 
+                           o.paymentStatus === 'paid' && 
+                           o.status !== 'waiting_payment'
+                );
                 if (newOrders.length > 0) {
                     newOrders.forEach((newOrd) => {
                         knownOrderIds.current.add(newOrd.id);

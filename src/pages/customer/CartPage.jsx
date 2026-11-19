@@ -1,11 +1,13 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { supabase } from '../../config/supabase';
 import { createOrder } from '../../services/orderService';
 import { getStore } from '../../services/storeService';
 import { parseStoreConfig, calculateDistanceKm, calculateShippingFee } from '../../utils/deliveryUtils';
 import { validateCustomerName } from '../../utils/nameValidator';
 import { getPayhookConfig } from '../../services/payhookService';
 import { generateDynamicQris, generateUniqueAmount, MASTER_QRIS_STATIC } from '../../utils/qrisUtils';
+import { playNotificationSound } from '../../utils/soundUtils';
 import { QRCodeSVG } from 'qrcode.react';
 import {
     ArrowLeft,
@@ -54,10 +56,12 @@ export default function CartPage() {
     const [deliveryAddress, setDeliveryAddress] = useState('');
     const [orderType, setOrderType] = useState(isOnlineOrder ? 'take_away' : 'dine_in');
 
-    // QRIS Flow Modal State (Order is NOT saved in DB until payment is confirmed!)
+    // QRIS Flow & Real-time Auto-Detection State
     const [showQrisModal, setShowQrisModal] = useState(false);
     const [pendingOrderPayload, setPendingOrderPayload] = useState(null);
-    const [verifyingPayment, setVerifyingPayment] = useState(false);
+    const [activeOrderId, setActiveOrderId] = useState(null);
+    const [paymentSuccess, setPaymentSuccess] = useState(false);
+    const [manualChecking, setManualChecking] = useState(false);
     const [qrisPayload, setQrisPayload] = useState('');
 
     // Delivery & Coordinates State
@@ -233,13 +237,13 @@ export default function CartPage() {
             baseTotal: finalTotal,
             uniqueCode: uniqueCode,
             payAmount: payAmount, // Nominal transfer QRIS (termasuk kode unik untuk mutasi bank)
-            totalPrice: finalTotal, // Nominal asli pesanan yang masuk pembukuan & dashboard admin (tanpa kode unik)
+            totalPrice: finalTotal, // Nominal asli pesanan untuk pembukuan resto
             notes: cart.map(i => i.notes ? `${i.name}: ${i.notes}` : '').filter(Boolean).join(' | '),
             userNotes: cart.map(i => i.notes ? `${i.name}: ${i.notes}` : '').filter(Boolean).join(' | '),
             orderType: finalOrderType,
             paymentMethod: 'qris',
-            paymentStatus: 'paid', // Saved as paid upon confirmation!
-            status: 'pending',
+            paymentStatus: 'unpaid', // Masuk sebagai belum lunas agar webhook bisa mencocokkan mutasi
+            status: 'waiting_payment', // Draft menunggu pembayaran, tidak masuk antrean masak dapur
         };
 
         // 2. Prepare Dynamic QRIS Code dengan nominal terkunci otomatis (termasuk kode unik)
@@ -247,39 +251,149 @@ export default function CartPage() {
         const dynamicCode = generateDynamicQris(rawStatic, payAmount);
 
         setQrisPayload(dynamicCode);
-        setPendingOrderPayload(orderData);
-        setShowQrisModal(true);
-    };
-
-    const handleConfirmAndCreateOrder = async () => {
-        if (!pendingOrderPayload || submitting) return;
-
+        setPaymentSuccess(false);
         setSubmitting(true);
-        setVerifyingPayment(true);
 
         try {
-            // Short 800ms verification state for user confidence
-            await new Promise((r) => setTimeout(r, 800));
+            // Save waiting_payment order into database so Payhook webhook can match it!
+            const orderId = await createOrder(orderData);
+            setActiveOrderId(orderId);
+            setPendingOrderPayload({ ...orderData, id: orderId });
+            setShowQrisModal(true);
+        } catch (err) {
+            console.error('Error initiating QRIS checkout:', err);
+            toast.error('Gagal menyiapkan pembayaran QRIS. Silakan coba lagi.');
+        } finally {
+            setSubmitting(false);
+        }
+    };
 
-            // ONLY HERE: Save order into database after scan/payment is confirmed!
-            const orderId = await createOrder(pendingOrderPayload);
+    // Automatic Trigger when payment arrives from Payhook webhook
+    const triggerPaymentSuccess = useCallback((matchedId) => {
+        const orderId = matchedId || activeOrderId;
+        if (!orderId || paymentSuccess) return;
 
-            // Clear active cart from memory and session
-            setCart([]);
-            sessionStorage.removeItem(`cart_${storeId}_${tableId || 'online'}`);
-            if (storeId) {
-                sessionStorage.setItem(`emakan_active_order_${storeId}`, orderId);
-            }
+        setPaymentSuccess(true);
+        playNotificationSound();
 
-            toast.success('Pembayaran QRIS Berhasil! Pesanan diteruskan ke dapur.');
+        // Clear active cart from memory and session
+        setCart([]);
+        sessionStorage.removeItem(`cart_${storeId}_${tableId || 'online'}`);
+        if (storeId) {
+            sessionStorage.setItem(`emakan_active_order_${storeId}`, orderId);
+        }
+
+        toast.success('Pembayaran QRIS Berhasil! Pesanan diteruskan ke dapur.');
+
+        // Auto navigate to order status page after showing success animation
+        setTimeout(() => {
             setShowQrisModal(false);
             navigate(`/order-status/${orderId}`);
-        } catch (err) {
-            console.error('Error confirming order:', err);
-            toast.error('Gagal memproses pesanan. Silakan coba lagi.');
+        }, 1500);
+    }, [activeOrderId, paymentSuccess, storeId, tableId, navigate]);
+
+    // Real-time automatic listener for QRIS payment
+    useEffect(() => {
+        if (!activeOrderId || !showQrisModal || paymentSuccess) return;
+
+        let isMounted = true;
+
+        // 1. Supabase Broadcast Sync
+        const broadcastChannel = supabase.channel(`order-sync-${activeOrderId}`);
+        broadcastChannel
+            .on('broadcast', { event: 'order_change' }, (e) => {
+                const payload = e.payload || {};
+                if (payload.orderId === activeOrderId && payload.paymentStatus === 'paid') {
+                    if (isMounted) triggerPaymentSuccess(payload.orderId);
+                }
+            })
+            .subscribe();
+
+        // 2. Supabase Postgres Realtime CDC on orders table
+        const postgresChannel = supabase
+            .channel(`order-postgres-${activeOrderId}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'orders',
+                    filter: `id=eq.${activeOrderId}`,
+                },
+                (payload) => {
+                    if (payload.new && payload.new.paymentStatus === 'paid') {
+                        if (isMounted) triggerPaymentSuccess(payload.new.id);
+                    }
+                }
+            )
+            .subscribe();
+
+        // 3. Polling Fallback (every 1.5s) to guarantee instant detection even if websocket reconnects
+        const pollTimer = setInterval(async () => {
+            try {
+                const { data } = await supabase
+                    .from('orders')
+                    .select('id, paymentStatus, status')
+                    .eq('id', activeOrderId)
+                    .single();
+
+                if (data && data.paymentStatus === 'paid') {
+                    if (isMounted) triggerPaymentSuccess(data.id);
+                }
+            } catch {
+                // ignore polling error
+            }
+        }, 1500);
+
+        return () => {
+            isMounted = false;
+            clearInterval(pollTimer);
+            supabase.removeChannel(broadcastChannel);
+            supabase.removeChannel(postgresChannel);
+        };
+    }, [activeOrderId, showQrisModal, paymentSuccess, triggerPaymentSuccess]);
+
+    // Manual check fallback button if Payhook notification is slightly delayed
+    const handleManualCheckPayment = async () => {
+        if (!activeOrderId || manualChecking || paymentSuccess) return;
+        setManualChecking(true);
+        const toastId = toast.loading('Memeriksa status pembayaran...');
+        try {
+            const { data } = await supabase
+                .from('orders')
+                .select('id, paymentStatus')
+                .eq('id', activeOrderId)
+                .single();
+
+            if (data?.paymentStatus === 'paid') {
+                toast.success('Pembayaran QRIS lunas!', { id: toastId });
+                triggerPaymentSuccess(data.id);
+            } else {
+                toast('Pembayaran belum terdeteksi. Pastikan transfer sudah berhasil di aplikasi m-Banking/e-Wallet Anda.', {
+                    id: toastId,
+                    icon: '⏳',
+                });
+            }
+        } catch {
+            toast.error('Gagal mengecek status pembayaran', { id: toastId });
         } finally {
-            setVerifyingPayment(false);
-            setSubmitting(false);
+            setManualChecking(false);
+        }
+    };
+
+    // Close or Cancel Order
+    const handleCancelOrder = async () => {
+        if (paymentSuccess) return;
+        const targetId = activeOrderId;
+        setShowQrisModal(false);
+        setActiveOrderId(null);
+        setPendingOrderPayload(null);
+        if (targetId) {
+            try {
+                await supabase.from('orders').update({ status: 'cancelled' }).eq('id', targetId);
+            } catch {
+                // ignore
+            }
         }
     };
 
@@ -697,149 +811,157 @@ export default function CartPage() {
                 </div>
             )}
 
-            {/* Modal Scan QRIS (Pesanan BELUM masuk database sebelum pembayaran dikonfirmasi) */}
+            {/* Modal Scan QRIS (Otomatis Mendeteksi Pembayaran via Webhook Real-time) */}
             {showQrisModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
                     <div className="bg-white rounded-3xl max-w-sm w-full p-5 shadow-2xl border border-slate-100 max-h-[92vh] overflow-y-auto space-y-4">
-                        {/* Header Modal */}
-                        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                            <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-                                    <QrCode className="w-4 h-4" />
+                        {paymentSuccess ? (
+                            /* Layar Sukses Otomatis */
+                            <div className="py-8 text-center space-y-4 animate-fade-in">
+                                <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-md">
+                                    <CheckCircle2 className="w-10 h-10 animate-bounce" />
                                 </div>
-                                <div>
-                                    <h3 className="font-bold text-sm text-secondary">Scan Bayar QRIS</h3>   
-                                </div>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    if (!verifyingPayment) {
-                                        setShowQrisModal(false);
-                                        setPendingOrderPayload(null);
-                                    }
-                                }}
-                                disabled={verifyingPayment}
-                                className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer disabled:opacity-30"
-                            >
-                                <X className="w-5 h-5" />
-                            </button>
-                        </div>
-
-                        {/* Merchant Details */}
-                        <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3 text-center">
-                            <p className="font-bold text-xs text-secondary tracking-wide uppercase">
-                                {getPayhookConfig()?.merchantName || 'eMakan Merchant'}
-                            </p>
-                            <p className="text-[10px] font-mono text-primary font-semibold mt-0.5">
-                                NMID: {getPayhookConfig()?.nmid || 'ID1026490305079'}
-                            </p>
-                        </div>
-
-                        {/* QR Code Container */}
-                        <div className="relative p-4 bg-white rounded-2xl border-2 border-slate-200 shadow-xs text-center">
-                            {qrisPayload ? (
-                                <QRCodeSVG
-                                    value={qrisPayload}
-                                    size={210}
-                                    level="M"
-                                    includeMargin={true}
-                                    className="mx-auto rounded-xl"
-                                />
-                            ) : (
-                                <img
-                                    src="/payhook-qris.jpg"
-                                    alt="QRIS"
-                                    className="w-full max-w-[210px] mx-auto rounded-xl object-contain"
-                                />
-                            )}
-                        </div>
-
-                        {/* Total Nominal Box */}
-                        <div className="bg-orange-50 border border-orange-200/80 rounded-2xl p-3.5 text-center space-y-1.5">
-                            <span className="text-[11px] font-medium text-orange-800">Total Nominal yang Harus di Bayar:</span>
-                            <div className="flex items-center justify-center gap-2">
-                                <span className="text-2xl font-black text-orange-600 font-mono tracking-tight">
-                                    {formatPrice(pendingOrderPayload?.totalPrice || finalTotal)}
-                                </span>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        navigator.clipboard.writeText(String(pendingOrderPayload?.totalPrice || finalTotal));
-                                        toast.success('Nominal disalin!');
-                                    }}
-                                    className="p-1 text-orange-600 hover:text-orange-800 hover:bg-orange-100 rounded-lg transition-colors cursor-pointer"
-                                    title="Salin Nominal"
-                                >
-                                    <Copy className="w-4 h-4" />
-                                </button>
-                            </div>
-
-                            {pendingOrderPayload?.uniqueCode > 0 && (
-                                <div className="pt-2 border-t border-orange-200/70 space-y-1 text-left">
-                                    <div className="flex items-center justify-between text-[11px] text-orange-950/80">
-                                        <span>Total Tagihan:</span>
-                                        <span>{formatPrice(pendingOrderPayload.baseTotal)}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between text-[11px] font-bold text-orange-900">
-                                        <span className="flex items-center gap-1">
-                                            <Sparkles className="w-3 h-3 text-primary" />
-                                            Kode Unik:
-                                        </span>
-                                        <span className="bg-orange-200/80 text-orange-950 font-mono px-2 py-0.5 rounded text-xs">
-                                            +{pendingOrderPayload.uniqueCode}
-                                        </span>
-                                    </div>
-                                    <p className="text-[10px] text-orange-700/80 pt-0.5 leading-snug">
-                                        *Silahkan Scan sesuai nominal + 3 digit kode unik agar pembayaran terverifikasi otomatis oleh sistem.
+                                <div className="space-y-1">
+                                    <h3 className="text-xl font-bold text-secondary">Pembayaran Berhasil!</h3>
+                                    <p className="text-xs text-slate-500 max-w-xs mx-auto">
+                                        Mutasi QRIS berhasil terverifikasi. Pesanan Anda otomatis diteruskan ke dapur...
                                     </p>
                                 </div>
-                            )}
-                        </div>
+                                <div className="flex items-center justify-center gap-2 text-xs font-semibold text-emerald-600 pt-2">
+                                    <RefreshCw className="w-4 h-4 animate-spin" />
+                                    <span>Mengalihkan ke status pesanan...</span>
+                                </div>
+                            </div>
+                        ) : (
+                            /* Layar QRIS Scan dengan Deteksi Otomatis Real-time */
+                            <>
+                                {/* Header Modal */}
+                                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                                            <QrCode className="w-4 h-4" />
+                                        </div>
+                                        <div>
+                                            <h3 className="font-bold text-sm text-secondary">Scan Bayar QRIS</h3>
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={handleCancelOrder}
+                                        className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                                        title="Tutup / Batal"
+                                    >
+                                        <X className="w-5 h-5" />
+                                    </button>
+                                </div>
 
-                        {/* Petunjuk Singkat */}
-                        <div className="bg-slate-50 rounded-xl p-3 text-[11px] text-slate-500 space-y-1">
-                            <p className="font-semibold text-slate-700">Cara Pembayaran:</p>
-                            <p>1. Buka e-wallet, atau m-Banking pilihan Anda.</p>
-                            <p>2. Scan kode QRIS di atas. Nominal sudah tertera otomatis.</p>
-                            <p>3. Selesaikan transfer, lalu klik tombol konfirmasi di bawah.</p>
-                        </div>
+                                {/* Merchant Details */}
+                                <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3 text-center">
+                                    <p className="font-bold text-xs text-secondary tracking-wide uppercase">
+                                        {getPayhookConfig()?.merchantName || 'Bayar Via Qris, Konter'}
+                                    </p>
+                                    <p className="text-[10px] font-mono text-primary font-semibold mt-0.5">
+                                        NMID: {getPayhookConfig()?.nmid || 'ID1026643315090'}
+                                    </p>
+                                </div>
 
-                        {/* Action Buttons */}
-                        <div className="space-y-2 pt-1">
-                            <button
-                                type="button"
-                                onClick={handleConfirmAndCreateOrder}
-                                disabled={verifyingPayment}
-                                className="w-full py-3.5 rounded-2xl bg-primary hover:bg-primary-dark text-white font-bold text-sm shadow-lg shadow-primary/25 transition-all cursor-pointer disabled:opacity-60 flex items-center justify-center gap-2"
-                            >
-                                {verifyingPayment ? (
-                                    <>
-                                        <RefreshCw className="w-4 h-4 animate-spin" />
-                                        <span>Memverifikasi Pembayaran...</span>
-                                    </>
-                                ) : (
-                                    <>
-                                        <CheckCircle2 className="w-4 h-4" />
-                                        <span>Saya Sudah Bayar</span>
-                                    </>
-                                )}
-                            </button>
+                                {/* QR Code Container */}
+                                <div className="relative p-4 bg-white rounded-2xl border-2 border-slate-200 shadow-xs text-center">
+                                    {qrisPayload ? (
+                                        <QRCodeSVG
+                                            value={qrisPayload}
+                                            size={210}
+                                            level="M"
+                                            includeMargin={true}
+                                            className="mx-auto rounded-xl"
+                                        />
+                                    ) : (
+                                        <img
+                                            src="/payhook-qris.jpg"
+                                            alt="QRIS"
+                                            className="w-full max-w-[210px] mx-auto rounded-xl object-contain"
+                                        />
+                                    )}
+                                </div>
 
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    if (!verifyingPayment) {
-                                        setShowQrisModal(false);
-                                        setPendingOrderPayload(null);
-                                    }
-                                }}
-                                disabled={verifyingPayment}
-                                className="w-full py-2.5 rounded-xl text-slate-500 hover:text-slate-700 hover:bg-slate-50 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-40"
-                            >
-                                Batal / Ubah Pesanan
-                            </button>
-                        </div>
+                                {/* Total Nominal Box */}
+                                <div className="bg-orange-50 border border-orange-200/80 rounded-2xl p-3.5 text-center space-y-1.5">
+                                    <span className="text-[11px] font-medium text-orange-800">Total Nominal yang Harus di Bayar:</span>
+                                    <div className="flex items-center justify-center gap-2">
+                                        <span className="text-2xl font-black text-orange-600 font-mono tracking-tight">
+                                            {formatPrice(pendingOrderPayload?.payAmount || finalTotal)}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                navigator.clipboard.writeText(String(pendingOrderPayload?.payAmount || finalTotal));
+                                                toast.success('Nominal disalin!');
+                                            }}
+                                            className="p-1 text-orange-600 hover:text-orange-800 hover:bg-orange-100 rounded-lg transition-colors cursor-pointer"
+                                            title="Salin Nominal"
+                                        >
+                                            <Copy className="w-4 h-4" />
+                                        </button>
+                                    </div>
+
+                                    {pendingOrderPayload?.uniqueCode > 0 && (
+                                        <div className="pt-2 border-t border-orange-200/70 space-y-1 text-left">
+                                            <div className="flex items-center justify-between text-[11px] text-orange-950/80">
+                                                <span>Total Tagihan Pesanan:</span>
+                                                <span>{formatPrice(pendingOrderPayload.totalPrice || pendingOrderPayload.baseTotal)}</span>
+                                            </div>
+                                            <div className="flex items-center justify-between text-[11px] font-bold text-orange-900">
+                                                <span className="flex items-center gap-1">
+                                                    <Sparkles className="w-3 h-3 text-primary" />
+                                                    Kode Unik Otomatis:
+                                                </span>
+                                                <span className="bg-orange-200/80 text-orange-950 font-mono px-2 py-0.5 rounded text-xs">
+                                                    +{pendingOrderPayload.uniqueCode}
+                                                </span>
+                                            </div>
+                                            <p className="text-[10px] text-orange-700/80 pt-0.5 leading-snug">
+                                                *Nominal sudah terkunci otomatis di QRIS. Cukup scan dan bayar untuk verifikasi instan.
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Radar Live Auto-Detection (Pengganti tombol manual) */}
+                                <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200/80 flex items-center gap-3">
+                                    <div className="relative flex h-3 w-3 shrink-0 ml-1">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+                                    </div>
+                                    <div className="flex-1 text-left">
+                                        <p className="text-xs font-bold text-amber-900">Menunggu Pembayaran Otomatis...</p>
+                                        <p className="text-[10px] text-amber-700/90 leading-tight mt-0.5">
+                                            Silakan transfer dari m-Banking/e-Wallet. Sistem akan mendeteksi mutasi dan beralih otomatis tanpa perlu klik apa pun.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* Fallback Options */}
+                                <div className="space-y-1.5 text-center pt-1">
+                                    <button
+                                        type="button"
+                                        onClick={handleManualCheckPayment}
+                                        disabled={manualChecking}
+                                        className="text-xs font-semibold text-slate-500 hover:text-primary transition-colors cursor-pointer py-1 disabled:opacity-50"
+                                    >
+                                        {manualChecking ? 'Sedang Memeriksa...' : 'Sudah transfer tapi belum terdeteksi? Cek Status'}
+                                    </button>
+                                    <div>
+                                        <button
+                                            type="button"
+                                            onClick={handleCancelOrder}
+                                            className="text-xs text-slate-400 hover:text-rose-600 transition-colors cursor-pointer py-1"
+                                        >
+                                            Batal / Ubah Pesanan
+                                        </button>
+                                    </div>
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
             )}

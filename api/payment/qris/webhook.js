@@ -167,6 +167,7 @@ export default async function handler(req, res) {
 
         const updatePayload = {
             paymentStatus: 'paid',
+            status: 'pending', // Ubah status dari waiting_payment ke pending (antrean dapur aktif)
             paymentMethod: 'qris',
         };
         if (updatedNotes) {

@@ -38,10 +38,14 @@ export default function DashboardPage() {
         return isNaN(d.getTime()) ? null : d;
     };
 
-    // Filter strictly for food orders (exclude customer inquiry & standalone chat threads)
+    // Filter strictly for food orders (exclude customer inquiry & standalone chat threads & unpaid drafts)
     const foodOrders = useMemo(() => {
         return orders.filter(
-            (o) => o.orderType !== 'customer_chat' && o.orderType !== 'inquiry' && o.status !== 'inquiry'
+            (o) => o.orderType !== 'customer_chat' && 
+                   o.orderType !== 'inquiry' && 
+                   o.status !== 'inquiry' &&
+                   o.status !== 'waiting_payment' &&
+                   o.paymentStatus === 'paid'
         );
     }, [orders]);
 
