@@ -27,6 +27,7 @@ import {
     X,
     ShieldCheck,
     RefreshCw,
+    StickyNote,
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import MapPicker from '../../components/ui/MapPicker';

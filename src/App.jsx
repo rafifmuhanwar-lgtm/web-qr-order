@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Toaster } from 'react-hot-toast';
 import Spinner from './components/ui/Spinner';
+import ErrorBoundary from './components/ui/ErrorBoundary';
 
 // Layouts
 import AdminLayout from './components/layout/AdminLayout';
@@ -100,7 +101,9 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <AppRoutes />
+        <ErrorBoundary>
+          <AppRoutes />
+        </ErrorBoundary>
         <Toaster
           position="top-center"
           toastOptions={{

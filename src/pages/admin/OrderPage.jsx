@@ -21,7 +21,8 @@ import {
     MessageCircle,
     MessageSquare,
     HeartHandshake,
-    RefreshCw
+    RefreshCw,
+    Calculator,
 } from 'lucide-react';
 import Badge from '../../components/ui/Badge';
 import Spinner from '../../components/ui/Spinner';
