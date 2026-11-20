@@ -19,10 +19,8 @@ export const SUBSCRIPTION_PLANS = [
         features: [
             'Akses Penuh Semua Meja QR',
             'Order Online & Delivery Antar',
-            'Kasir POS & Cetak Struk Thermal',
-            'Payhook QRIS Otomatis Real-time',
-            'Laporan Keuangan & Saldo Escrow',
-            'Bantuan Operasional 7 Hari/Minggu',
+            'Laporan Keuangan',
+            'Bantuan Operasional',
         ],
     },
     {
@@ -169,7 +167,7 @@ export async function paySubscriptionWithWallet(storeId, planId, orders = []) {
         bankName: 'eMakan Cloud SaaS',
         accountNumber: 'SYSTEM-INTERNAL',
         accountHolder: `Perpanjangan ${plan.name}`,
-        notes: `Pembayaran Langganan SaaS ${plan.name} (${plan.months} Bulan)`,
+        notes: `Pembayaran Langganan ${plan.name} (${plan.months} Bulan)`,
         status: 'completed',
         createdAt: new Date().toISOString(),
         processedAt: new Date().toISOString(),

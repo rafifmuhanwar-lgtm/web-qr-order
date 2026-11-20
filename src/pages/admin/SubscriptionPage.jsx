@@ -148,10 +148,10 @@ export default function SubscriptionPage() {
                 <div>
                     <h1 className="text-xl sm:text-2xl font-bold text-secondary flex items-center gap-2">
                         <Crown className="w-6 h-6 text-primary" />
-                        <span>Paket & Langganan SaaS</span>
+                        <span>Paket & Langganan</span>
                     </h1>
                     <p className="text-slate-500 text-xs sm:text-sm mt-0.5">
-                        Kelola lisensi operasional restoran dan perpanjang langganan cloud kasir POS
+                        Kelola lisensi operasional restoran dan perpanjang langganan.
                     </p>
                 </div>
                 <button

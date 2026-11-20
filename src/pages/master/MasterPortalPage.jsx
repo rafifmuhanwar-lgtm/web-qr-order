@@ -487,7 +487,7 @@ export default function MasterPortalPage() {
                         { id: 'overview', label: 'Ringkasan Platform', icon: Layers },
                         {
                             id: 'subscriptions',
-                            label: `Langganan SaaS (${activeSubscriptionCount + trialSubscriptionCount})`,
+                            label: `Langganan (${activeSubscriptionCount + trialSubscriptionCount})`,
                             icon: Crown,
                             badge: expiringSubscriptionCount > 0 ? `${expiringSubscriptionCount} Berakhir` : null,
                         },
@@ -1568,7 +1568,7 @@ export default function MasterPortalPage() {
                                 <div>
                                     <h2 className="text-sm font-semibold text-white flex items-center gap-2">
                                         <Crown className="w-4 h-4 text-amber-400" />
-                                        <span>Manajemen Billing & Langganan SaaS Resto</span>
+                                        <span>Manajemen Billing & Langganan Resto</span>
                                     </h2>
                                     <p className="text-xs text-slate-400 mt-0.5">
                                         Pantau status langganan, tanggal kedaluwarsa, dan lakukan intervensi manual perpanjangan
