@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { subscribeToOrders } from '../../services/orderService';
 import {
@@ -15,7 +14,6 @@ import Spinner from '../../components/ui/Spinner';
 
 export default function DashboardPage() {
     const { storeId, storeData } = useAuth();
-    const navigate = useNavigate();
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
 

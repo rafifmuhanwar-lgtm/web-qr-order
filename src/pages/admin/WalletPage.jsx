@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { subscribeToOrders } from '../../services/orderService';
 import {
@@ -55,7 +55,7 @@ export default function WalletPage() {
     // Filter tab for withdrawal history
     const [historyFilter, setHistoryFilter] = useState('all'); // all, pending, completed, rejected
 
-    const loadWallet = async (ordersList = orders) => {
+    const loadWallet = useCallback(async (ordersList = orders) => {
         if (!storeId) return;
         try {
             const data = await getStoreWallet(storeId, ordersList);
@@ -68,7 +68,7 @@ export default function WalletPage() {
         } catch (err) {
             console.error('Error loading wallet:', err);
         }
-    };
+    }, [storeId, orders]);
 
     useEffect(() => {
         if (!storeId) return;
@@ -86,7 +86,7 @@ export default function WalletPage() {
         );
 
         return () => unsubscribe();
-    }, [storeId]);
+    }, [storeId, loadWallet]);
 
     const handleRefresh = async () => {
         setRefreshing(true);
@@ -224,7 +224,6 @@ export default function WalletPage() {
     if (loading) return <Spinner text="Memuat data saldo & mutasi..." />;
 
     const availableBalance = walletData?.availableBalance || 0;
-    const canWithdraw = availableBalance >= MIN_WITHDRAWAL_AMOUNT && !!walletData?.bankAccount?.accountNumber;
 
     return (
         <div className="animate-fade-in space-y-6 max-w-7xl mx-auto">

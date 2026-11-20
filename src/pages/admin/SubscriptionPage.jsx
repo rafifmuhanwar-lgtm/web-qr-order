@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { getStore } from '../../services/storeService';
 import { getOrdersByStore } from '../../services/orderService';
@@ -42,7 +42,7 @@ export default function SubscriptionPage() {
     const [uniqueCode, setUniqueCode] = useState(0);
     const [copiedAmount, setCopiedAmount] = useState(false);
 
-    const loadData = async (isManual = false) => {
+    const loadData = useCallback(async (isManual = false) => {
         if (!storeId) return;
         try {
             if (isManual) setRefreshing(true);
@@ -66,11 +66,11 @@ export default function SubscriptionPage() {
             setLoading(false);
             setRefreshing(false);
         }
-    };
+    }, [storeId]);
 
     useEffect(() => {
         loadData();
-    }, [storeId]);
+    }, [loadData]);
 
     const subscription = useMemo(() => {
         return getSubscriptionDetails(store);

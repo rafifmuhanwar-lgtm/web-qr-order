@@ -56,6 +56,7 @@ import {
     extendStoreSubscription,
     resetStoreTrial,
     suspendStore,
+    getSubscriptionDetails,
     MONTHLY_SUBSCRIPTION_FEE,
 } from '../../services/subscriptionService';
 
@@ -231,33 +232,20 @@ export default function MasterPortalPage() {
             const defaultTrialExpiresAt = new Date(new Date(trialStartedAt).getTime() + 14 * 24 * 60 * 60 * 1000).toISOString();
             const subscriptionExpiresAt = extra.subscriptionExpiresAt || defaultTrialExpiresAt;
 
-            let subscriptionStatus = extra.subscriptionStatus || 'trial';
-            const now = new Date();
-            const expiryDate = new Date(subscriptionExpiresAt);
-            if (subscriptionStatus !== 'suspended') {
-                if (now > expiryDate) {
-                    const gracePeriodEnd = new Date(expiryDate.getTime() + 3 * 24 * 60 * 60 * 1000);
-                    if (now <= gracePeriodEnd) {
-                        subscriptionStatus = 'past_due';
-                    } else {
-                        subscriptionStatus = 'expired';
-                    }
-                } else if (!extra.subscriptionStatus) {
-                    subscriptionStatus = 'trial';
-                }
-            }
-
-            const diffMs = expiryDate.getTime() - now.getTime();
-            const remainingDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+            const subDetails = getSubscriptionDetails({
+                ...s,
+                subscriptionStatus: extra.subscriptionStatus,
+                subscriptionExpiresAt,
+            });
 
             return {
                 ...s,
                 extra,
                 subscriptionPlan: extra.subscriptionPlan || 'pro',
-                subscriptionStatus,
-                subscriptionExpiresAt,
-                remainingDays,
-                isExpiringSoon: remainingDays <= 7 && remainingDays >= 0,
+                subscriptionStatus: subDetails.status,
+                subscriptionExpiresAt: subDetails.expiresAt,
+                remainingDays: subDetails.remainingDays,
+                isExpiringSoon: subDetails.remainingDays <= 7 && subDetails.remainingDays >= 0,
                 history: Array.isArray(extra.subscriptionHistory) ? extra.subscriptionHistory : [],
             };
         });
