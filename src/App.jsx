@@ -25,6 +25,7 @@ import OrderPage from './pages/admin/OrderPage';
 import ChatManagePage from './pages/admin/ChatManagePage';
 import ReportPage from './pages/admin/ReportPage';
 import SettingsPage from './pages/admin/SettingsPage';
+import SubscriptionPage from './pages/admin/SubscriptionPage';
 import LandingPage from './pages/LandingPage';
 
 // Master Superadmin Portal
@@ -71,6 +72,7 @@ function AppRoutes() {
         <Route path="orders" element={<OrderPage />} />
         <Route path="chats" element={<ChatManagePage />} />
         <Route path="reports" element={<ReportPage />} />
+        <Route path="subscription" element={<SubscriptionPage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>
 

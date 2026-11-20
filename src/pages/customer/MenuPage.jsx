@@ -4,7 +4,7 @@ import { getMenusByStore } from '../../services/menuService';
 import { getCategoriesByStore } from '../../services/categoryService';
 import { getStore } from '../../services/storeService';
 import { applyThemeColor } from '../../utils/themeUtils';
-import { ShoppingCart, Plus, Minus, Search, StickyNote, ChefHat, ChevronRight, ArrowLeft } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Search, StickyNote, ChefHat, ChevronRight, ArrowLeft, Clock } from 'lucide-react';
 import Spinner from '../../components/ui/Spinner';
 import toast from 'react-hot-toast';
 
@@ -26,6 +26,7 @@ export default function MenuPage() {
     const [welcomeMessage, setWelcomeMessage] = useState('');
     const [menuLayout, setMenuLayout] = useState('banner');
     const [categoryBanners, setCategoryBanners] = useState({});
+    const [storeLocked, setStoreLocked] = useState(false);
 
     // State untuk Food Detail Modal (Foto 1)
     const [detailModalMenu, setDetailModalMenu] = useState(null);
@@ -48,6 +49,9 @@ export default function MenuPage() {
                     setWelcomeMessage(storeData.welcomeMessage || '');
                     setMenuLayout(storeData.menuLayout || 'banner');
                     setCategoryBanners(storeData.categoryBanners || {});
+                    if (storeData.subscriptionStatus === 'expired' || storeData.subscriptionStatus === 'suspended') {
+                        setStoreLocked(true);
+                    }
                     if (storeData.themeColor) {
                         applyThemeColor(storeData.themeColor, storeData.customColor);
                     }
@@ -163,6 +167,25 @@ export default function MenuPage() {
     }, [categories, activeCategory]);
 
     if (loading) return <Spinner text="Memuat menu..." />;
+
+    if (storeLocked) {
+        return (
+            <div className="min-h-[70vh] flex items-center justify-center p-6 text-center animate-fade-in">
+                <div className="max-w-md w-full bg-white rounded-3xl p-8 border border-slate-200/80 shadow-xl">
+                    <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mx-auto mb-4">
+                        <Clock className="w-8 h-8" />
+                    </div>
+                    <h2 className="text-xl font-bold text-secondary mb-2">Restoran Sedang Pembaruan Sistem</h2>
+                    <p className="text-xs text-slate-500 leading-relaxed mb-6">
+                        Layanan pemesanan QR digital untuk <strong>{storeName || 'restoran ini'}</strong> saat ini sedang dalam jadwal pemeliharaan operasional berkala. Silakan melakukan pemesanan langsung melalui kasir atau staf resto yang bertugas.
+                    </p>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-[11px] text-slate-400">
+                        Terima kasih atas pengertian dan kunjungan Anda.
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     const isBannerMode = menuLayout === 'banner';
     const isShowingCategoryShowcase = isBannerMode && activeCategory === 'all' && search.trim() === '' && categories.length > 0;

@@ -77,6 +77,17 @@ export const createOrder = async (orderData) => {
     return result.id;
 };
 
+export const getOrdersByStore = async (storeId) => {
+    if (!storeId) return [];
+    const { data, error } = await supabase
+        .from(COLLECTION)
+        .select('*')
+        .eq('storeId', storeId)
+        .order('createdAt', { ascending: false });
+    if (error) throw error;
+    return data || [];
+};
+
 export const subscribeToOrders = (storeId, callback, onError) => {
     let isCancelled = false;
 

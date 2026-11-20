@@ -18,6 +18,26 @@ export const getStore = async (storeId) => {
         }
     }
 
+    const trialStartedAt = extra.trialStartedAt || data.created_at || new Date().toISOString();
+    const defaultTrialExpiresAt = new Date(new Date(trialStartedAt).getTime() + 14 * 24 * 60 * 60 * 1000).toISOString();
+    const subscriptionExpiresAt = extra.subscriptionExpiresAt || defaultTrialExpiresAt;
+
+    let subscriptionStatus = extra.subscriptionStatus || 'trial';
+    const now = new Date();
+    const expiryDate = new Date(subscriptionExpiresAt);
+    if (subscriptionStatus !== 'suspended') {
+        if (now > expiryDate) {
+            const gracePeriodEnd = new Date(expiryDate.getTime() + 3 * 24 * 60 * 60 * 1000);
+            if (now <= gracePeriodEnd) {
+                subscriptionStatus = 'past_due';
+            } else {
+                subscriptionStatus = 'expired';
+            }
+        } else if (!extra.subscriptionStatus) {
+            subscriptionStatus = 'trial';
+        }
+    }
+
     return {
         ...data,
         logoUrl: data.logo || extra.logoUrl || '',
@@ -37,6 +57,11 @@ export const getStore = async (storeId) => {
         bankAccount: extra.bankAccount || null,
         withdrawals: Array.isArray(extra.withdrawals) ? extra.withdrawals : [],
         deliverySettings: extra,
+        subscriptionPlan: extra.subscriptionPlan || 'pro',
+        subscriptionStatus,
+        subscriptionExpiresAt,
+        trialStartedAt,
+        subscriptionHistory: Array.isArray(extra.subscriptionHistory) ? extra.subscriptionHistory : [],
     };
 };
 

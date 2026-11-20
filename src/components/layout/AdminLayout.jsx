@@ -20,12 +20,16 @@ import {
     MessageSquare,
     Bell,
     Wallet,
+    Crown,
+    AlertTriangle,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { getSubscriptionDetails } from '../../services/subscriptionService';
 
 const navItems = [
     { to: '/admin', icon: LayoutDashboard, label: 'Dashboard', end: true },
     { to: '/admin/wallet', icon: Wallet, label: 'Saldo & Penarikan' },
+    { to: '/admin/subscription', icon: Crown, label: 'Langganan SaaS' },
     { to: '/admin/menu', icon: UtensilsCrossed, label: 'Menu' },
     { to: '/admin/categories', icon: FolderOpen, label: 'Kategori' },
     { to: '/admin/tables', icon: Store, label: 'Meja' },
@@ -39,6 +43,7 @@ const navItems = [
 const pageNameMap = {
     '/admin': 'Dashboard Utama',
     '/admin/wallet': 'Saldo & Penarikan',
+    '/admin/subscription': 'Langganan SaaS',
     '/admin/menu': 'Menu',
     '/admin/categories': 'Kategori',
     '/admin/tables': 'Meja Resto',
@@ -57,6 +62,8 @@ export default function AdminLayout() {
     const location = useLocation();
     const storeName = storeData?.name || 'Admin Panel';
     const isMaster = user?.email === 'rafif.muh.anwar@gmail.com' || userData?.role === 'master_admin';
+
+    const subscription = storeData ? getSubscriptionDetails(storeData) : null;
 
     const isInitialLoad = useRef(true);
     const knownOrderIds = useRef(new Set());
@@ -308,6 +315,44 @@ export default function AdminLayout() {
             {/* Main Content */}
             <main className="lg:ml-64 pt-14 lg:pt-0 min-h-screen">
                 <div className="p-4 lg:p-8">
+                    {/* SaaS Alert Banner */}
+                    {subscription && (subscription.status === 'expired' || subscription.status === 'past_due' || subscription.isExpiringSoon) && location.pathname !== '/admin/subscription' && (
+                        <div className={`mb-6 p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 border ${
+                            subscription.status === 'expired'
+                                ? 'bg-rose-50 border-rose-200 text-rose-900'
+                                : 'bg-amber-50 border-amber-200 text-amber-900'
+                        }`}>
+                            <div className="flex items-start gap-3">
+                                <AlertTriangle className={`w-5 h-5 shrink-0 mt-0.5 ${
+                                    subscription.status === 'expired' ? 'text-rose-600' : 'text-amber-600'
+                                }`} />
+                                <div>
+                                    <h4 className="text-xs font-bold uppercase tracking-wider">
+                                        {subscription.status === 'expired'
+                                            ? 'Masa Aktif Langganan Toko Berakhir'
+                                            : subscription.status === 'past_due'
+                                            ? 'Masa Tenggang Langganan (Grace Period)'
+                                            : `Langganan Segera Berakhir (${subscription.remainingDays} Hari Lagi)`}
+                                    </h4>
+                                    <p className="text-xs mt-0.5 opacity-90">
+                                        {subscription.status === 'expired'
+                                            ? 'Pemesanan QR Meja & Online pelanggan dinonaktifkan sementara. Perpanjang sekarang agar resto kembali online normal.'
+                                            : 'Perpanjang langganan (Rp 150.000 / bulan) agar operasional restoran & kasir tidak terhenti.'}
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => navigate('/admin/subscription')}
+                                className={`px-4 py-2 rounded-xl text-xs font-bold shrink-0 cursor-pointer shadow-sm transition-all ${
+                                    subscription.status === 'expired'
+                                        ? 'bg-rose-600 hover:bg-rose-700 text-white'
+                                        : 'bg-amber-600 hover:bg-amber-700 text-white'
+                                }`}
+                            >
+                                Perpanjang Sekarang
+                            </button>
+                        </div>
+                    )}
                     <Outlet />
                 </div>
             </main>

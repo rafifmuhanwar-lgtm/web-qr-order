@@ -47,8 +47,17 @@ import {
     AlertCircle,
     XCircle,
     CheckCircle,
+    Crown,
+    Sparkles,
+    AlertTriangle,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import {
+    extendStoreSubscription,
+    resetStoreTrial,
+    suspendStore,
+    MONTHLY_SUBSCRIPTION_FEE,
+} from '../../services/subscriptionService';
 
 export default function MasterPortalPage() {
     const { user } = useAuth();
@@ -71,6 +80,8 @@ export default function MasterPortalPage() {
     const [searchStore, setSearchStore] = useState('');
     const [searchWithdrawal, setSearchWithdrawal] = useState('');
     const [withdrawalFilter, setWithdrawalFilter] = useState('all'); // all, pending, completed, rejected
+    const [searchSubscription, setSearchSubscription] = useState('');
+    const [subscriptionFilter, setSubscriptionFilter] = useState('all'); // all, active, trial, expiring, expired
 
     // Webhook actions
     const [isPinging, setIsPinging] = useState(false);
@@ -201,6 +212,140 @@ export default function MasterPortalPage() {
             await fetchAllData();
         } catch (err) {
             toast.error(err.message || 'Gagal menolak penarikan', { id: toastId });
+        }
+    };
+
+    // SaaS Multi-Tenant Subscriptions
+    const storesWithSubscription = useMemo(() => {
+        return stores.map((s) => {
+            let extra = {};
+            if (s.address && typeof s.address === 'string' && s.address.startsWith('{')) {
+                try {
+                    extra = JSON.parse(s.address);
+                } catch {
+                    extra = {};
+                }
+            }
+
+            const trialStartedAt = extra.trialStartedAt || s.created_at || new Date().toISOString();
+            const defaultTrialExpiresAt = new Date(new Date(trialStartedAt).getTime() + 14 * 24 * 60 * 60 * 1000).toISOString();
+            const subscriptionExpiresAt = extra.subscriptionExpiresAt || defaultTrialExpiresAt;
+
+            let subscriptionStatus = extra.subscriptionStatus || 'trial';
+            const now = new Date();
+            const expiryDate = new Date(subscriptionExpiresAt);
+            if (subscriptionStatus !== 'suspended') {
+                if (now > expiryDate) {
+                    const gracePeriodEnd = new Date(expiryDate.getTime() + 3 * 24 * 60 * 60 * 1000);
+                    if (now <= gracePeriodEnd) {
+                        subscriptionStatus = 'past_due';
+                    } else {
+                        subscriptionStatus = 'expired';
+                    }
+                } else if (!extra.subscriptionStatus) {
+                    subscriptionStatus = 'trial';
+                }
+            }
+
+            const diffMs = expiryDate.getTime() - now.getTime();
+            const remainingDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+            return {
+                ...s,
+                extra,
+                subscriptionPlan: extra.subscriptionPlan || 'pro',
+                subscriptionStatus,
+                subscriptionExpiresAt,
+                remainingDays,
+                isExpiringSoon: remainingDays <= 7 && remainingDays >= 0,
+                history: Array.isArray(extra.subscriptionHistory) ? extra.subscriptionHistory : [],
+            };
+        });
+    }, [stores]);
+
+    const activeSubscriptionCount = useMemo(() => {
+        return storesWithSubscription.filter((s) => s.subscriptionStatus === 'active').length;
+    }, [storesWithSubscription]);
+
+    const trialSubscriptionCount = useMemo(() => {
+        return storesWithSubscription.filter((s) => s.subscriptionStatus === 'trial').length;
+    }, [storesWithSubscription]);
+
+    const expiringSubscriptionCount = useMemo(() => {
+        return storesWithSubscription.filter((s) => s.isExpiringSoon && s.subscriptionStatus !== 'expired').length;
+    }, [storesWithSubscription]);
+
+    const expiredSubscriptionCount = useMemo(() => {
+        return storesWithSubscription.filter((s) => s.subscriptionStatus === 'expired' || s.subscriptionStatus === 'suspended').length;
+    }, [storesWithSubscription]);
+
+    const estimatedMRR = activeSubscriptionCount * MONTHLY_SUBSCRIPTION_FEE;
+
+    const filteredStoresSubscription = useMemo(() => {
+        return storesWithSubscription.filter((s) => {
+            if (subscriptionFilter === 'active' && s.subscriptionStatus !== 'active') return false;
+            if (subscriptionFilter === 'trial' && s.subscriptionStatus !== 'trial') return false;
+            if (subscriptionFilter === 'expiring' && !s.isExpiringSoon) return false;
+            if (subscriptionFilter === 'expired' && s.subscriptionStatus !== 'expired' && s.subscriptionStatus !== 'suspended') return false;
+
+            if (!searchSubscription) return true;
+            const query = searchSubscription.toLowerCase();
+            return s.name?.toLowerCase().includes(query) || s.id?.toLowerCase().includes(query);
+        });
+    }, [storesWithSubscription, subscriptionFilter, searchSubscription]);
+
+    const handleMasterExtendSub = async (storeId, months) => {
+        const confirmMsg = `Perpanjang langganan toko ini selama ${months} Bulan?\n(Nilai: Rp ${(months * MONTHLY_SUBSCRIPTION_FEE).toLocaleString('id-ID')})`;
+        if (!window.confirm(confirmMsg)) return;
+
+        const toastId = toast.loading('Memproses perpanjangan langganan...');
+        try {
+            await extendStoreSubscription(storeId, months, {
+                method: 'superadmin_override',
+                amount: months * MONTHLY_SUBSCRIPTION_FEE,
+                notes: `Perpanjangan manual ${months} bulan oleh Superadmin`,
+            });
+            toast.success(`Langganan berhasil diperpanjang +${months} bulan!`, { id: toastId });
+            await fetchAllData();
+        } catch (err) {
+            toast.error(err.message || 'Gagal memperpanjang langganan', { id: toastId });
+        }
+    };
+
+    const handleMasterResetTrial = async (storeId) => {
+        if (!window.confirm('Reset masa uji coba toko ini ke Free Trial 14 Hari?')) return;
+        const toastId = toast.loading('Mereset masa trial...');
+        try {
+            await resetStoreTrial(storeId, 14);
+            toast.success('Trial 14 hari berhasil diaktifkan ulang!', { id: toastId });
+            await fetchAllData();
+        } catch (err) {
+            toast.error(err.message || 'Gagal reset trial', { id: toastId });
+        }
+    };
+
+    const handleMasterSuspendStore = async (storeId, currentStatus) => {
+        if (currentStatus === 'suspended') {
+            if (!window.confirm('Pulihkan status toko ini menjadi Aktif kembali?')) return;
+            const toastId = toast.loading('Mengaktifkan toko...');
+            try {
+                await extendStoreSubscription(storeId, 1, { notes: 'Re-activated by Superadmin' });
+                toast.success('Toko berhasil diaktifkan kembali!', { id: toastId });
+                await fetchAllData();
+            } catch (err) {
+                toast.error(err.message || 'Gagal mengaktifkan toko', { id: toastId });
+            }
+        } else {
+            const reason = window.prompt('Masukkan alasan penonaktifan (Suspend) toko ini:');
+            if (reason === null) return;
+            const toastId = toast.loading('Menonaktifkan toko...');
+            try {
+                await suspendStore(storeId, reason || 'Ditangguhkan oleh Superadmin');
+                toast.success('Toko berhasil disuspend!', { id: toastId });
+                await fetchAllData();
+            } catch (err) {
+                toast.error(err.message || 'Gagal suspend toko', { id: toastId });
+            }
         }
     };
 
@@ -352,6 +497,12 @@ export default function MasterPortalPage() {
                 <div className="flex items-center gap-1.5 p-1 bg-[#0e1422] rounded-xl border border-slate-800/80 overflow-x-auto">
                     {[
                         { id: 'overview', label: 'Ringkasan Platform', icon: Layers },
+                        {
+                            id: 'subscriptions',
+                            label: `Langganan SaaS (${activeSubscriptionCount + trialSubscriptionCount})`,
+                            icon: Crown,
+                            badge: expiringSubscriptionCount > 0 ? `${expiringSubscriptionCount} Berakhir` : null,
+                        },
                         {
                             id: 'withdrawals',
                             label: `Penarikan Saldo ${pendingWithdrawals.length > 0 ? `(${pendingWithdrawals.length} Baru)` : `(${allWithdrawals.length})`}`,
@@ -1357,6 +1508,257 @@ export default function MasterPortalPage() {
                                     })}
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+                )}
+
+                {/* 6. TAB SAAS MULTI-TENANT SUBSCRIPTION */}
+                {activeTab === 'subscriptions' && (
+                    <div className="space-y-6">
+                        {/* 4 Metric Cards */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div className="bg-[#0e1422] border border-slate-800 rounded-xl p-5">
+                                <div className="flex items-center justify-between text-slate-400 mb-2">
+                                    <span className="text-xs font-medium">Estimasi MRR (Bulanan)</span>
+                                    <Crown className="w-4 h-4 text-amber-400" />
+                                </div>
+                                <h3 className="text-2xl font-bold text-white tracking-tight">
+                                    Rp {estimatedMRR.toLocaleString('id-ID')}
+                                </h3>
+                                <p className="text-[11px] text-slate-400 mt-2 flex items-center gap-1">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                    <span>{activeSubscriptionCount} Resto Aktif @ Rp 150.000 / bln</span>
+                                </p>
+                            </div>
+
+                            <div className="bg-[#0e1422] border border-slate-800 rounded-xl p-5">
+                                <div className="flex items-center justify-between text-slate-400 mb-2">
+                                    <span className="text-xs font-medium">Restoran Aktif Berlangganan</span>
+                                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                                </div>
+                                <h3 className="text-2xl font-bold text-white tracking-tight">
+                                    {activeSubscriptionCount}{' '}
+                                    <span className="text-sm font-normal text-slate-400">Resto</span>
+                                </h3>
+                                <p className="text-[11px] text-slate-400 mt-2">
+                                    Layanan kasir & QR berjalan normal
+                                </p>
+                            </div>
+
+                            <div className="bg-[#0e1422] border border-slate-800 rounded-xl p-5">
+                                <div className="flex items-center justify-between text-slate-400 mb-2">
+                                    <span className="text-xs font-medium">Masa Free Trial (14 Hari)</span>
+                                    <Clock className="w-4 h-4 text-amber-400" />
+                                </div>
+                                <h3 className="text-2xl font-bold text-white tracking-tight">
+                                    {trialSubscriptionCount}{' '}
+                                    <span className="text-sm font-normal text-slate-400">Resto</span>
+                                </h3>
+                                <p className="text-[11px] text-slate-400 mt-2">
+                                    Dalam periode uji coba gratis
+                                </p>
+                            </div>
+
+                            <div className="bg-[#0e1422] border border-slate-800 rounded-xl p-5">
+                                <div className="flex items-center justify-between text-slate-400 mb-2">
+                                    <span className="text-xs font-medium">Segera Berakhir / Expired</span>
+                                    <AlertTriangle className="w-4 h-4 text-rose-400" />
+                                </div>
+                                <h3 className="text-2xl font-bold text-rose-400 tracking-tight">
+                                    {expiringSubscriptionCount + expiredSubscriptionCount}{' '}
+                                    <span className="text-sm font-normal text-slate-400">Resto</span>
+                                </h3>
+                                <p className="text-[11px] text-slate-400 mt-2">
+                                    {expiringSubscriptionCount} segera habis • {expiredSubscriptionCount} expired
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Store Table & Filter Bar */}
+                        <div className="bg-[#0e1422] border border-slate-800 rounded-xl p-5 sm:p-6 space-y-4">
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+                                <div>
+                                    <h2 className="text-sm font-semibold text-white flex items-center gap-2">
+                                        <Crown className="w-4 h-4 text-amber-400" />
+                                        <span>Manajemen Billing & Langganan SaaS Resto</span>
+                                    </h2>
+                                    <p className="text-xs text-slate-400 mt-0.5">
+                                        Pantau status langganan, tanggal kedaluwarsa, dan lakukan intervensi manual perpanjangan
+                                    </p>
+                                </div>
+
+                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                                    <div className="relative">
+                                        <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                                        <input
+                                            type="text"
+                                            value={searchSubscription}
+                                            onChange={(e) => setSearchSubscription(e.target.value)}
+                                            placeholder="Cari nama resto atau ID..."
+                                            className="w-full sm:w-56 pl-8 pr-3 py-1.5 bg-slate-900 border border-slate-800 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/50"
+                                        />
+                                    </div>
+
+                                    <div className="flex items-center gap-1 p-1 bg-slate-900 rounded-lg border border-slate-800 overflow-x-auto">
+                                        {[
+                                            { id: 'all', label: `Semua (${storesWithSubscription.length})` },
+                                            { id: 'active', label: `Aktif (${activeSubscriptionCount})` },
+                                            { id: 'trial', label: `Trial (${trialSubscriptionCount})` },
+                                            { id: 'expiring', label: `Segera Habis (${expiringSubscriptionCount})` },
+                                            { id: 'expired', label: `Expired (${expiredSubscriptionCount})` },
+                                        ].map((f) => (
+                                            <button
+                                                key={f.id}
+                                                onClick={() => setSubscriptionFilter(f.id)}
+                                                className={`px-2.5 py-1 rounded text-[11px] font-medium whitespace-nowrap transition-colors cursor-pointer ${
+                                                    subscriptionFilter === f.id
+                                                        ? 'bg-slate-800 text-white border border-slate-700/80 shadow-sm'
+                                                        : 'text-slate-400 hover:text-slate-200'
+                                                }`}
+                                            >
+                                                {f.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Table */}
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left text-xs">
+                                    <thead>
+                                        <tr className="border-b border-slate-800 text-slate-400 uppercase text-[10px] tracking-wider">
+                                            <th className="py-2.5 px-3">Nama Restoran</th>
+                                            <th className="py-2.5 px-3">Status</th>
+                                            <th className="py-2.5 px-3">Masa Berlaku</th>
+                                            <th className="py-2.5 px-3">Sisa Hari</th>
+                                            <th className="py-2.5 px-3">Paket SaaS</th>
+                                            <th className="py-2.5 px-3 text-right">Aksi Cepat Superadmin</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-800/60 font-medium">
+                                        {filteredStoresSubscription.map((store) => {
+                                            const isExpired = store.subscriptionStatus === 'expired';
+                                            const isSuspended = store.subscriptionStatus === 'suspended';
+                                            const isPastDue = store.subscriptionStatus === 'past_due';
+                                            const isTrial = store.subscriptionStatus === 'trial';
+                                            const isActive = store.subscriptionStatus === 'active';
+
+                                            return (
+                                                <tr key={store.id} className="hover:bg-slate-800/30 transition-colors">
+                                                    <td className="py-3 px-3">
+                                                        <div className="font-semibold text-white">{store.name || 'Resto'}</div>
+                                                        <div className="text-[10px] font-mono text-slate-500 mt-0.5">
+                                                            ID: {store.id}
+                                                        </div>
+                                                    </td>
+
+                                                    <td className="py-3 px-3">
+                                                        {isActive && (
+                                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                                                <CheckCircle2 className="w-3 h-3" /> Aktif
+                                                            </span>
+                                                        )}
+                                                        {isTrial && (
+                                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                                                Free Trial
+                                                            </span>
+                                                        )}
+                                                        {isPastDue && (
+                                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-orange-500/10 text-orange-400 border border-orange-500/20">
+                                                                Masa Tenggang
+                                                            </span>
+                                                        )}
+                                                        {isExpired && (
+                                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                                                                Expired
+                                                            </span>
+                                                        )}
+                                                        {isSuspended && (
+                                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-800 text-slate-400 border border-slate-700">
+                                                                Suspended
+                                                            </span>
+                                                        )}
+                                                    </td>
+
+                                                    <td className="py-3 px-3 text-slate-300 font-mono text-[11px]">
+                                                        {store.subscriptionExpiresAt
+                                                            ? new Date(store.subscriptionExpiresAt).toLocaleDateString('id-ID', {
+                                                                  day: 'numeric',
+                                                                  month: 'short',
+                                                                  year: 'numeric',
+                                                              })
+                                                            : '-'}
+                                                    </td>
+
+                                                    <td className="py-3 px-3">
+                                                        <span
+                                                            className={`text-xs font-bold font-mono ${
+                                                                store.remainingDays <= 0
+                                                                    ? 'text-rose-400'
+                                                                    : store.remainingDays <= 7
+                                                                    ? 'text-amber-400'
+                                                                    : 'text-emerald-400'
+                                                            }`}
+                                                        >
+                                                            {store.remainingDays > 0 ? `${store.remainingDays} Hari` : 'Habis'}
+                                                        </span>
+                                                    </td>
+
+                                                    <td className="py-3 px-3">
+                                                        <span className="text-[11px] text-slate-300">
+                                                            eMakan Pro (Rp 150k/bln)
+                                                        </span>
+                                                    </td>
+
+                                                    <td className="py-3 px-3 text-right">
+                                                        <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                                                            <button
+                                                                onClick={() => handleMasterExtendSub(store.id, 1)}
+                                                                className="px-2 py-1 rounded bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold transition-colors cursor-pointer"
+                                                                title="Perpanjang 1 Bulan (Rp 150.000)"
+                                                            >
+                                                                +30 Hari
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleMasterExtendSub(store.id, 3)}
+                                                                className="px-2 py-1 rounded bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/30 text-[10px] font-bold transition-colors cursor-pointer"
+                                                                title="Perpanjang 3 Bulan (Rp 420.000)"
+                                                            >
+                                                                +90 Hari
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleMasterExtendSub(store.id, 12)}
+                                                                className="px-2 py-1 rounded bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 text-[10px] font-bold transition-colors cursor-pointer"
+                                                                title="Perpanjang 1 Tahun (Rp 1.500.000)"
+                                                            >
+                                                                +1 Thn
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleMasterResetTrial(store.id)}
+                                                                className="px-2 py-1 rounded bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/30 text-[10px] font-bold transition-colors cursor-pointer"
+                                                                title="Reset Masa Trial 14 Hari"
+                                                            >
+                                                                Reset Trial
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleMasterSuspendStore(store.id, store.subscriptionStatus)}
+                                                                className={`px-2 py-1 rounded text-[10px] font-bold border transition-colors cursor-pointer ${
+                                                                    isSuspended
+                                                                        ? 'bg-emerald-600/20 text-emerald-300 border-emerald-500/30'
+                                                                        : 'bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border-rose-500/30'
+                                                                }`}
+                                                            >
+                                                                {isSuspended ? 'Aktifkan' : 'Suspend'}
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 )}
