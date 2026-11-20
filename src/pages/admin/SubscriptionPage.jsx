@@ -434,34 +434,36 @@ export default function SubscriptionPage() {
 
             {/* 5. Clean Modal Checkout Pembayaran */}
             {selectedPlan && (
-                <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-                    <div className="bg-white rounded-2xl max-w-md w-full overflow-hidden shadow-2xl border border-border animate-enter">
+                <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 sm:p-6 animate-fade-in">
+                    <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-border overflow-hidden my-auto animate-enter">
                         {/* Header Modal */}
-                        <div className="p-5 border-b border-border flex items-center justify-between">
+                        <div className="px-5 py-4 border-b border-border flex items-center justify-between bg-white">
                             <div>
                                 <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
                                     Konfirmasi Perpanjangan
                                 </span>
-                                <h3 className="text-base font-bold text-secondary mt-0.5">{selectedPlan.name}</h3>
+                                <h3 className="text-base font-bold text-secondary mt-0.5">
+                                    {selectedPlan.name} • {selectedPlan.periodLabel}
+                                </h3>
                             </div>
                             <button
                                 onClick={() => setSelectedPlan(null)}
-                                className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
+                                className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
                             >
-                                <X className="w-4 h-4" />
+                                <X className="w-5 h-5" />
                             </button>
                         </div>
 
-                        <div className="p-5 space-y-5">
+                        <div className="p-5 space-y-4 max-h-[calc(88vh-130px)] overflow-y-auto">
                             {/* Rincian Tagihan */}
-                            <div className="bg-slate-50 border border-border rounded-xl p-4 space-y-2">
+                            <div className="bg-slate-50 border border-border rounded-xl p-3.5 space-y-1.5">
                                 <div className="flex items-center justify-between text-xs text-slate-600">
-                                    <span>Durasi Langganan:</span>
-                                    <span className="font-bold text-secondary">{selectedPlan.periodLabel}</span>
+                                    <span>Durasi Lisensi:</span>
+                                    <span className="font-semibold text-secondary">{selectedPlan.periodLabel}</span>
                                 </div>
                                 <div className="flex items-center justify-between text-xs text-slate-600">
                                     <span>Biaya Paket:</span>
-                                    <span className="font-bold text-secondary font-mono">
+                                    <span className="font-semibold text-secondary font-mono">
                                         {formatPrice(selectedPlan.price)}
                                     </span>
                                 </div>
@@ -472,7 +474,7 @@ export default function SubscriptionPage() {
                                     </div>
                                 )}
                                 <div className="pt-2 border-t border-border flex items-center justify-between">
-                                    <span className="text-xs font-bold text-secondary">Total Pembayaran:</span>
+                                    <span className="text-xs font-bold text-secondary">Total Transfer:</span>
                                     <span className="text-base font-extrabold text-primary font-mono">
                                         {formatPrice(
                                             paymentMethod === 'qris'
@@ -484,30 +486,32 @@ export default function SubscriptionPage() {
                             </div>
 
                             {/* Pilih Metode Pembayaran */}
-                            <div className="space-y-2.5">
-                                <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">
-                                    Metode Pembayaran
+                            <div className="space-y-2">
+                                <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">
+                                    Pilih Metode Bayar
                                 </label>
 
-                                <div className="grid grid-cols-2 gap-3">
+                                <div className="grid grid-cols-2 gap-2.5">
                                     {/* Opsi 1: Potong Saldo Resto */}
                                     <button
                                         type="button"
                                         onClick={() => setPaymentMethod('wallet')}
-                                        className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+                                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
                                             paymentMethod === 'wallet'
-                                                ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
+                                                ? 'border-primary bg-primary/5 ring-1 ring-primary'
                                                 : 'border-border hover:border-slate-300 bg-white'
                                         }`}
                                     >
-                                        <Wallet
-                                            className={`w-4 h-4 mb-2 ${
-                                                paymentMethod === 'wallet' ? 'text-primary' : 'text-slate-400'
-                                            }`}
-                                        />
-                                        <div className="text-xs font-bold text-secondary">Potong Saldo Resto</div>
-                                        <div className="text-[10px] text-slate-500 mt-0.5">
-                                            Tersedia: {formatPrice(availableBalance)}
+                                        <div className="flex items-center gap-1.5 mb-1 text-xs font-bold text-secondary">
+                                            <Wallet
+                                                className={`w-3.5 h-3.5 ${
+                                                    paymentMethod === 'wallet' ? 'text-primary' : 'text-slate-400'
+                                                }`}
+                                            />
+                                            <span>Saldo Resto</span>
+                                        </div>
+                                        <div className="text-[10px] text-slate-500">
+                                            Sedia: {formatPrice(availableBalance)}
                                         </div>
                                     </button>
 
@@ -515,20 +519,22 @@ export default function SubscriptionPage() {
                                     <button
                                         type="button"
                                         onClick={() => setPaymentMethod('qris')}
-                                        className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+                                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
                                             paymentMethod === 'qris'
-                                                ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
+                                                ? 'border-primary bg-primary/5 ring-1 ring-primary'
                                                 : 'border-border hover:border-slate-300 bg-white'
                                         }`}
                                     >
-                                        <QrCode
-                                            className={`w-4 h-4 mb-2 ${
-                                                paymentMethod === 'qris' ? 'text-primary' : 'text-slate-400'
-                                            }`}
-                                        />
-                                        <div className="text-xs font-bold text-secondary">Transfer QRIS</div>
-                                        <div className="text-[10px] text-slate-500 mt-0.5">
-                                            BCA, DANA, GoPay, dll.
+                                        <div className="flex items-center gap-1.5 mb-1 text-xs font-bold text-secondary">
+                                            <QrCode
+                                                className={`w-3.5 h-3.5 ${
+                                                    paymentMethod === 'qris' ? 'text-primary' : 'text-slate-400'
+                                                }`}
+                                            />
+                                            <span>Transfer QRIS</span>
+                                        </div>
+                                        <div className="text-[10px] text-slate-500">
+                                            BCA, DANA, GoPay, dll
                                         </div>
                                     </button>
                                 </div>
@@ -536,27 +542,27 @@ export default function SubscriptionPage() {
 
                             {/* Konten Tab Pembayaran */}
                             {paymentMethod === 'wallet' ? (
-                                <div className="space-y-4">
+                                <div className="space-y-3 pt-1">
                                     {availableBalance >= selectedPlan.price ? (
-                                        <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 space-y-0.5">
+                                        <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 space-y-0.5">
                                             <div className="flex items-center gap-1.5 font-bold">
                                                 <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                                                 <span>Saldo Toko Mencukupi</span>
                                             </div>
                                             <p className="text-[11px] text-emerald-700 leading-relaxed">
                                                 Dana Rp {selectedPlan.price.toLocaleString('id-ID')} akan dipotong dari saldo
-                                                siap tarik. Lisensi aktif seketika tanpa perlu transfer.
+                                                siap tarik. Lisensi langsung aktif seketika.
                                             </p>
                                         </div>
                                     ) : (
-                                        <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800 space-y-0.5">
+                                        <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800 space-y-0.5">
                                             <div className="flex items-center gap-1.5 font-bold">
                                                 <AlertTriangle className="w-4 h-4 text-rose-600" />
                                                 <span>Saldo Belum Mencukupi</span>
                                             </div>
                                             <p className="text-[11px] text-rose-700 leading-relaxed">
                                                 Saldo tersedia {formatPrice(availableBalance)} belum cukup untuk paket{' '}
-                                                {formatPrice(selectedPlan.price)}. Silakan pilih metode Transfer QRIS.
+                                                {formatPrice(selectedPlan.price)}. Silakan pilih metode Transfer QRIS di atas.
                                             </p>
                                         </div>
                                     )}
@@ -581,50 +587,52 @@ export default function SubscriptionPage() {
                                     </button>
                                 </div>
                             ) : (
-                                <div className="space-y-4">
-                                    <div className="flex flex-col items-center justify-center p-4 bg-slate-50 border border-border rounded-xl">
-                                        <div className="p-2.5 bg-white rounded-xl shadow-xs border border-border">
+                                <div className="space-y-3 pt-1">
+                                    <div className="flex flex-col items-center justify-center p-3.5 bg-slate-50 border border-border rounded-xl">
+                                        <div className="p-2 bg-white rounded-xl shadow-xs border border-border mb-2.5">
                                             <QRCodeSVG
                                                 value={dynamicQrisString}
-                                                size={160}
+                                                size={140}
                                                 level="M"
                                                 includeMargin={true}
                                             />
                                         </div>
 
-                                        <div className="text-center mt-2.5">
-                                            <p className="text-[11px] text-slate-500">Transfer Tepat Sesuai Nominal:</p>
-                                            <div className="flex items-center justify-center gap-2 mt-1">
-                                                <span className="text-base font-extrabold text-secondary font-mono">
-                                                    {formatPrice(selectedPlan.price + uniqueCode)}
-                                                </span>
-                                                <button
-                                                    onClick={() => handleCopyAmount(selectedPlan.price + uniqueCode)}
-                                                    className="p-1.5 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 transition-colors cursor-pointer"
-                                                    title="Salin Nominal"
-                                                >
-                                                    {copiedAmount ? (
-                                                        <Check className="w-3.5 h-3.5 text-emerald-600" />
-                                                    ) : (
-                                                        <Copy className="w-3.5 h-3.5" />
-                                                    )}
-                                                </button>
-                                            </div>
-                                            <p className="text-[10px] text-amber-600 font-semibold mt-1">
-                                                *3 digit unik ({uniqueCode}) wajib dimasukkan persis untuk verifikasi otomatis.
-                                            </p>
+                                        <p className="text-[11px] text-slate-500 font-medium">Nominal Transfer Persis:</p>
+                                        <div className="flex items-center justify-center gap-2 mt-0.5">
+                                            <span className="text-base font-black text-secondary font-mono tracking-tight">
+                                                {formatPrice(selectedPlan.price + uniqueCode)}
+                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleCopyAmount(selectedPlan.price + uniqueCode)}
+                                                className="p-1 rounded-md bg-slate-200 hover:bg-slate-300 text-slate-700 transition-colors cursor-pointer"
+                                                title="Salin Nominal"
+                                            >
+                                                {copiedAmount ? (
+                                                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                                ) : (
+                                                    <Copy className="w-3.5 h-3.5" />
+                                                )}
+                                            </button>
                                         </div>
+                                        <p className="text-[10px] text-amber-700 font-semibold mt-1">
+                                            *Wajib transfer tepat 3 digit unik (+{uniqueCode}) untuk aktivasi otomatis.
+                                        </p>
                                     </div>
-
-                                    <button
-                                        type="button"
-                                        onClick={() => setSelectedPlan(null)}
-                                        className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
-                                    >
-                                        Tutup
-                                    </button>
                                 </div>
                             )}
+                        </div>
+
+                        {/* Footer Modal */}
+                        <div className="px-5 py-3 bg-slate-50 border-t border-border flex items-center justify-end">
+                            <button
+                                type="button"
+                                onClick={() => setSelectedPlan(null)}
+                                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-200/70 transition-colors cursor-pointer"
+                            >
+                                Tutup
+                            </button>
                         </div>
                     </div>
                 </div>
