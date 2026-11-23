@@ -173,3 +173,55 @@ export const updateStore = async (storeId, updateData) => {
     }
     return true;
 };
+
+export const deleteStore = async (storeId) => {
+    if (!storeId) throw new Error('ID Toko tidak valid');
+
+    // 1. Bersihkan pesanan terkait toko
+    try {
+        await supabase.from('orders').delete().eq('storeId', storeId);
+    } catch (e) {
+        console.warn('Orders cleanup warning:', e);
+    }
+
+    // 2. Bersihkan menu makanan toko
+    try {
+        await supabase.from('menus').delete().eq('storeId', storeId);
+    } catch (e) {
+        console.warn('Menus cleanup warning:', e);
+    }
+
+    // 3. Bersihkan kategori menu toko
+    try {
+        await supabase.from('categories').delete().eq('storeId', storeId);
+    } catch (e) {
+        console.warn('Categories cleanup warning:', e);
+    }
+
+    // 4. Bersihkan meja QR toko
+    try {
+        await supabase.from('tables').delete().eq('storeId', storeId);
+    } catch (e) {
+        console.warn('Tables cleanup warning:', e);
+    }
+
+    // 5. Lepaskan keterkaitan user dengan toko ini
+    try {
+        await supabase.from('users').update({ store_id: null }).eq('store_id', storeId);
+    } catch (e) {
+        console.warn('Users unlink warning:', e);
+    }
+
+    // 6. Hapus data toko permanen dari Supabase
+    const { error } = await supabase
+        .from('stores')
+        .delete()
+        .eq('id', storeId);
+
+    if (error) {
+        console.error('Delete store error:', error);
+        throw error;
+    }
+
+    return true;
+};

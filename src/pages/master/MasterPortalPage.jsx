@@ -44,6 +44,7 @@ import {
     XCircle,
     Crown,
     AlertTriangle,
+    Trash2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
@@ -53,6 +54,7 @@ import {
     getSubscriptionDetails,
     MONTHLY_SUBSCRIPTION_FEE,
 } from '../../services/subscriptionService';
+import { deleteStore } from '../../services/storeService';
 
 export default function MasterPortalPage() {
     const { user } = useAuth();
@@ -330,6 +332,34 @@ export default function MasterPortalPage() {
             } catch (err) {
                 toast.error(err.message || 'Gagal suspend toko', { id: toastId });
             }
+        }
+    };
+
+    const handleDeleteStore = async (storeId, storeName) => {
+        const displayName = storeName || 'Toko Ini';
+        const confirmMsg = `PERINGATAN HAPUS MERCHANT!\n\nApakah Anda yakin ingin MENGHAPUS merchant "${displayName}"?\n\nSemua data terkait di Supabase (menu, kategori, meja, dan pesanan) akan dibersihkan secara permanen.\n\nKetik nama toko atau "HAPUS" untuk konfirmasi:`;
+        const userInput = window.prompt(confirmMsg);
+        if (userInput === null) return; // Dibatalkan pengguna
+
+        const trimmedInput = userInput.trim().toLowerCase();
+        const validMatch =
+            trimmedInput === displayName.trim().toLowerCase() ||
+            trimmedInput === 'hapus' ||
+            trimmedInput === 'delete';
+
+        if (!validMatch) {
+            toast.error('Penghapusan dibatalkan: Konfirmasi teks tidak cocok.');
+            return;
+        }
+
+        const toastId = toast.loading(`Menghapus merchant ${displayName}...`);
+        try {
+            await deleteStore(storeId);
+            toast.success(`Merchant "${displayName}" berhasil dihapus dari database!`, { id: toastId });
+            await fetchAllData();
+        } catch (err) {
+            console.error('Failed to delete store:', err);
+            toast.error(err.message || 'Gagal menghapus merchant dari database', { id: toastId });
         }
     };
 
@@ -1452,7 +1482,7 @@ export default function MasterPortalPage() {
                                         </div>
                                     </div>
 
-                                    <div className="pt-3 mt-3 border-t border-border flex items-center justify-between">
+                                    <div className="pt-3 mt-3 border-t border-border flex items-center justify-between gap-2">
                                         <a
                                             href={`/order/${store.id}`}
                                             target="_blank"
@@ -1461,6 +1491,15 @@ export default function MasterPortalPage() {
                                         >
                                             Menu Pelanggan <ExternalLink className="w-3.5 h-3.5" />
                                         </a>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleDeleteStore(store.id, store.name)}
+                                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-rose-600 hover:text-rose-700 bg-rose-50/60 hover:bg-rose-100 border border-rose-200 transition-colors cursor-pointer"
+                                            title="Hapus merchant permanen dari Supabase"
+                                        >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                            <span>Hapus</span>
+                                        </button>
                                     </div>
                                 </div>
                             ))}
@@ -1777,10 +1816,18 @@ export default function MasterPortalPage() {
                                                                 className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-colors cursor-pointer ${
                                                                     isSuspended
                                                                         ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
-                                                                        : 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200'
+                                                                        : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
                                                                 }`}
                                                             >
                                                                 {isSuspended ? 'Aktifkan' : 'Suspend'}
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleDeleteStore(store.id, store.name)}
+                                                                className="p-1 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 border border-transparent hover:border-rose-200 transition-colors cursor-pointer"
+                                                                title="Hapus merchant permanen dari database"
+                                                            >
+                                                                <Trash2 className="w-3.5 h-3.5" />
                                                             </button>
                                                         </div>
                                                     </td>
