@@ -255,6 +255,52 @@ export async function extendStoreSubscription(storeId, monthsToAdd, paymentDetai
 }
 
 /**
+ * Tambah masa aktif dalam hitungan hari (misal +14 hari trial atau kompensasi)
+ */
+export async function extendStoreDays(storeId, daysToAdd = 14, paymentDetails = {}) {
+    if (!storeId) throw new Error('ID Toko tidak valid');
+    const store = await getStore(storeId);
+    if (!store) throw new Error('Toko tidak ditemukan');
+
+    const currentExpiry = store.subscriptionExpiresAt ? new Date(store.subscriptionExpiresAt) : new Date();
+    const baseDate = currentExpiry > new Date() ? currentExpiry : new Date();
+
+    const newExpiry = new Date(baseDate.getTime() + Number(daysToAdd) * 24 * 60 * 60 * 1000);
+
+    const paymentId = `EXT-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+    const historyEntry = {
+        id: paymentId,
+        planId: `${daysToAdd}_days`,
+        planName: `Ekstra ${daysToAdd} Hari`,
+        months: Math.round((daysToAdd / 30) * 10) / 10,
+        amount: paymentDetails.amount || 0,
+        paymentMethod: paymentDetails.method || 'superadmin_override',
+        referenceNumber: paymentDetails.referenceNumber || null,
+        paidAt: new Date().toISOString(),
+        expiresAt: newExpiry.toISOString(),
+        notes: paymentDetails.notes || `Penambahan masa aktif +${daysToAdd} hari oleh Admin`,
+    };
+
+    const updatedHistory = [historyEntry, ...(Array.isArray(store.subscriptionHistory) ? store.subscriptionHistory : [])];
+
+    const newStatus = store.subscriptionStatus === 'suspended' ? 'suspended' : 'active';
+
+    await updateStore(storeId, {
+        subscriptionPlan: store.subscriptionPlan || 'pro',
+        subscriptionStatus: newStatus,
+        subscriptionExpiresAt: newExpiry.toISOString(),
+        subscriptionHistory: updatedHistory,
+    });
+
+    broadcastOrderChange({ storeId, action: 'subscription_updated' });
+
+    return {
+        success: true,
+        newExpiry: newExpiry.toISOString(),
+    };
+}
+
+/**
  * Reset masa uji coba (Free Trial)
  */
 export async function resetStoreTrial(storeId, trialDays = 14) {

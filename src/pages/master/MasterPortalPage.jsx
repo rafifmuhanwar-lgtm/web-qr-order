@@ -49,6 +49,7 @@ import {
 import toast from 'react-hot-toast';
 import {
     extendStoreSubscription,
+    extendStoreDays,
     resetStoreTrial,
     suspendStore,
     getSubscriptionDetails,
@@ -295,6 +296,23 @@ export default function MasterPortalPage() {
             await fetchAllData();
         } catch (err) {
             toast.error(err.message || 'Gagal memperpanjang langganan', { id: toastId });
+        }
+    };
+
+    const handleMasterExtendDays = async (storeId, days = 14) => {
+        const confirmMsg = `Tambahkan masa aktif toko ini sebanyak +${days} Hari?`;
+        if (!window.confirm(confirmMsg)) return;
+
+        const toastId = toast.loading(`Menambahkan +${days} hari...`);
+        try {
+            await extendStoreDays(storeId, days, {
+                method: 'superadmin_override',
+                notes: `Penambahan masa aktif +${days} hari oleh Superadmin`,
+            });
+            toast.success(`Masa aktif berhasil ditambah +${days} hari!`, { id: toastId });
+            await fetchAllData();
+        } catch (err) {
+            toast.error(err.message || 'Gagal menambah masa aktif', { id: toastId });
         }
     };
 
@@ -1778,6 +1796,14 @@ export default function MasterPortalPage() {
 
                                                     <td className="py-3.5 px-3 text-right">
                                                         <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleMasterExtendDays(store.id, 14)}
+                                                                className="px-2.5 py-1 rounded-lg bg-teal-50 hover:bg-teal-100 text-teal-700 border border-teal-200 text-[10px] font-bold transition-colors cursor-pointer"
+                                                                title="Tambah Masa Aktif +14 Hari (Trial)"
+                                                            >
+                                                                +14 Hari
+                                                            </button>
                                                             <button
                                                                 type="button"
                                                                 onClick={() => handleMasterExtendSub(store.id, 1)}
