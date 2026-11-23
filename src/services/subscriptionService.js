@@ -78,7 +78,8 @@ export function getSubscriptionDetails(store) {
         };
     }
 
-    const expiresAt = store.subscriptionExpiresAt ? new Date(store.subscriptionExpiresAt) : null;
+    const rawExpiry = store.subscriptionExpiresAt || store.subscription_expires_at;
+    const expiresAt = rawExpiry ? new Date(rawExpiry) : null;
     const now = new Date();
 
     if (!expiresAt) {
@@ -97,7 +98,7 @@ export function getSubscriptionDetails(store) {
     const remainingDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
     const remainingHours = Math.ceil(diffMs / (1000 * 60 * 60));
 
-    let status = store.subscriptionStatus || 'active';
+    let status = store.subscriptionStatus || store.subscription_status || 'active';
     let isActive = true;
     let isGracePeriod = false;
 

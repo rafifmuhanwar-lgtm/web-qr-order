@@ -224,23 +224,25 @@ export default function MasterPortalPage() {
 
             const trialStartedAt = extra.trialStartedAt || s.created_at || new Date().toISOString();
             const defaultTrialExpiresAt = new Date(new Date(trialStartedAt).getTime() + 14 * 24 * 60 * 60 * 1000).toISOString();
-            const subscriptionExpiresAt = extra.subscriptionExpiresAt || defaultTrialExpiresAt;
+            const subscriptionExpiresAt = s.subscription_expires_at || extra.subscriptionExpiresAt || defaultTrialExpiresAt;
 
             const subDetails = getSubscriptionDetails({
                 ...s,
-                subscriptionStatus: extra.subscriptionStatus,
+                subscriptionStatus: s.subscription_status || extra.subscriptionStatus,
                 subscriptionExpiresAt,
             });
 
             return {
                 ...s,
                 extra,
-                subscriptionPlan: extra.subscriptionPlan || 'pro',
+                subscriptionPlan: s.subscription_plan || extra.subscriptionPlan || 'pro',
                 subscriptionStatus: subDetails.status,
                 subscriptionExpiresAt: subDetails.expiresAt,
                 remainingDays: subDetails.remainingDays,
                 isExpiringSoon: subDetails.remainingDays <= 7 && subDetails.remainingDays >= 0,
-                history: Array.isArray(extra.subscriptionHistory) ? extra.subscriptionHistory : [],
+                history: (Array.isArray(s.subscription_history) && s.subscription_history.length > 0)
+                    ? s.subscription_history
+                    : (Array.isArray(extra.subscriptionHistory) ? extra.subscriptionHistory : []),
             };
         });
     }, [stores]);

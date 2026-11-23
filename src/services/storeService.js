@@ -18,11 +18,17 @@ export const getStore = async (storeId) => {
         }
     }
 
+    // 1. Prioritize dedicated columns, fallback to JSON extra, fallback to default 14 days trial
     const trialStartedAt = extra.trialStartedAt || data.created_at || new Date().toISOString();
     const defaultTrialExpiresAt = new Date(new Date(trialStartedAt).getTime() + 14 * 24 * 60 * 60 * 1000).toISOString();
-    const subscriptionExpiresAt = extra.subscriptionExpiresAt || defaultTrialExpiresAt;
+    
+    const subscriptionExpiresAt = data.subscription_expires_at || extra.subscriptionExpiresAt || defaultTrialExpiresAt;
+    let subscriptionStatus = data.subscription_status || extra.subscriptionStatus || 'trial';
+    const subscriptionPlan = data.subscription_plan || extra.subscriptionPlan || 'pro';
+    const subscriptionHistory = Array.isArray(data.subscription_history) && data.subscription_history.length > 0
+        ? data.subscription_history
+        : (Array.isArray(extra.subscriptionHistory) ? extra.subscriptionHistory : []);
 
-    let subscriptionStatus = extra.subscriptionStatus || 'trial';
     const now = new Date();
     const expiryDate = new Date(subscriptionExpiresAt);
     if (subscriptionStatus !== 'suspended') {
@@ -33,7 +39,7 @@ export const getStore = async (storeId) => {
             } else {
                 subscriptionStatus = 'expired';
             }
-        } else if (!extra.subscriptionStatus) {
+        } else if (!data.subscription_status && !extra.subscriptionStatus) {
             subscriptionStatus = 'trial';
         }
     }
@@ -57,47 +63,113 @@ export const getStore = async (storeId) => {
         bankAccount: extra.bankAccount || null,
         withdrawals: Array.isArray(extra.withdrawals) ? extra.withdrawals : [],
         deliverySettings: extra,
-        subscriptionPlan: extra.subscriptionPlan || 'pro',
+        subscriptionPlan,
         subscriptionStatus,
         subscriptionExpiresAt,
         trialStartedAt,
-        subscriptionHistory: Array.isArray(extra.subscriptionHistory) ? extra.subscriptionHistory : [],
+        subscriptionHistory,
     };
 };
 
 export const updateStore = async (storeId, updateData) => {
     if (!storeId) throw new Error('ID Toko tidak valid');
 
-    const { name, logo, logoUrl, address, ...metadata } = updateData;
+    // 1. Fetch existing store to safely merge metadata and prevent accidental wipe
+    const { data: existingStore } = await supabase
+        .from('stores')
+        .select('*')
+        .eq('id', storeId)
+        .maybeSingle();
 
-    // Pack extended fields (delivery, theme, receipt footer, etc.) safely into address JSON
-    let packedAddress = '';
-    if (typeof address === 'string' && address.startsWith('{')) {
+    let existingExtra = {};
+    if (existingStore?.address && typeof existingStore.address === 'string' && existingStore.address.startsWith('{')) {
         try {
-            const parsed = JSON.parse(address);
-            packedAddress = JSON.stringify({ ...parsed, ...metadata });
+            existingExtra = JSON.parse(existingStore.address);
         } catch {
-            packedAddress = address;
+            existingExtra = {};
         }
-    } else {
-        packedAddress = JSON.stringify({
-            address: address || '',
-            ...metadata,
-        });
     }
 
+    const {
+        name,
+        logo,
+        logoUrl,
+        address,
+        subscriptionStatus,
+        subscription_status,
+        subscriptionExpiresAt,
+        subscription_expires_at,
+        subscriptionPlan,
+        subscription_plan,
+        subscriptionHistory,
+        subscription_history,
+        ...otherMetadata
+    } = updateData;
+
     const payload = {};
+
+    // Standard columns
     if (name !== undefined) payload.name = name;
     if (logo !== undefined || logoUrl !== undefined) {
         payload.logo = logo || logoUrl || '';
     }
-    payload.address = packedAddress;
 
-    const { error } = await supabase
+    // Dedicated subscription columns in Supabase
+    const finalSubStatus = subscriptionStatus !== undefined ? subscriptionStatus : subscription_status;
+    if (finalSubStatus !== undefined) {
+        payload.subscription_status = finalSubStatus;
+    }
+
+    const finalSubExpiresAt = subscriptionExpiresAt !== undefined ? subscriptionExpiresAt : subscription_expires_at;
+    if (finalSubExpiresAt !== undefined) {
+        payload.subscription_expires_at = finalSubExpiresAt;
+    }
+
+    const finalSubPlan = subscriptionPlan !== undefined ? subscriptionPlan : subscription_plan;
+    if (finalSubPlan !== undefined) {
+        payload.subscription_plan = finalSubPlan;
+    }
+
+    const finalSubHistory = subscriptionHistory !== undefined ? subscriptionHistory : subscription_history;
+    if (finalSubHistory !== undefined) {
+        payload.subscription_history = finalSubHistory;
+    }
+
+    // Safe Merge for address & JSON metadata
+    let incomingAddressData = {};
+    if (typeof address === 'string' && address.startsWith('{')) {
+        try {
+            incomingAddressData = JSON.parse(address);
+        } catch {
+            incomingAddressData = { address };
+        }
+    } else if (address !== undefined) {
+        incomingAddressData = { address };
+    }
+
+    const mergedExtra = {
+        ...existingExtra,
+        ...incomingAddressData,
+        ...otherMetadata,
+    };
+
+    // Keep subscription copy in JSON as well for 100% backward compatibility
+    if (finalSubStatus !== undefined) mergedExtra.subscriptionStatus = finalSubStatus;
+    if (finalSubExpiresAt !== undefined) mergedExtra.subscriptionExpiresAt = finalSubExpiresAt;
+    if (finalSubPlan !== undefined) mergedExtra.subscriptionPlan = finalSubPlan;
+    if (finalSubHistory !== undefined) mergedExtra.subscriptionHistory = finalSubHistory;
+
+    payload.address = JSON.stringify(mergedExtra);
+
+    const { data: updatedData, error } = await supabase
         .from('stores')
         .update(payload)
-        .eq('id', storeId);
+        .eq('id', storeId)
+        .select('id');
 
     if (error) throw error;
+    if (!updatedData || updatedData.length === 0) {
+        throw new Error('Gagal memperbarui toko: Tidak ada baris yang diperbarui di Supabase (periksa izin database RLS).');
+    }
     return true;
 };
