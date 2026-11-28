@@ -34,19 +34,21 @@ export default function TablePage() {
     }, [storeId, fetchData]);
 
     const handleAdd = async () => {
-        if (!tableNumber) {
+        const trimmed = tableNumber.trim();
+        if (!trimmed) {
             toast.error('Nomor meja wajib diisi');
             return;
         }
         setSaving(true);
         try {
-            await addTable({ storeId, number: Number(tableNumber) });
+            const finalNum = /^\d+$/.test(trimmed) ? Number(trimmed) : trimmed;
+            await addTable({ storeId, number: finalNum });
             toast.success('Meja berhasil ditambahkan');
             setAddModal(false);
             setTableNumber('');
             fetchData();
-        } catch {
-            toast.error('Gagal menambah meja');
+        } catch (err) {
+            toast.error(err.message || 'Gagal menambah meja');
         } finally {
             setSaving(false);
         }
@@ -119,7 +121,7 @@ export default function TablePage() {
                                 <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-3">
                                     <QrCode className="w-5 h-5 text-primary" />
                                 </div>
-                                <h3 className="font-bold text-lg text-secondary mb-3">Meja #{padTableNumber(table.number)}</h3>
+                                <h3 className="font-bold text-lg text-secondary mb-3">Meja Nomer : {table.number}</h3>
                                 <div className="flex justify-center mb-4">
                                     <QRCodeSVG
                                         id={`qr-${table.id}`}
@@ -162,10 +164,10 @@ export default function TablePage() {
                 <div className="space-y-4">
                     <Input
                         label="Nomor Meja"
-                        type="number"
+                        type="text"
                         value={tableNumber}
                         onChange={(e) => setTableNumber(e.target.value)}
-                        placeholder="1"
+                        placeholder="Contoh: 1, 2, LT1-01, LT2-05"
                     />
                     <div className="flex gap-3 pt-2">
                         <Button variant="ghost" onClick={() => setAddModal(false)} className="flex-1">Batal</Button>

@@ -4,7 +4,7 @@ import { getMenusByStore } from '../../services/menuService';
 import { getCategoriesByStore } from '../../services/categoryService';
 import { getStore } from '../../services/storeService';
 import { applyThemeColor } from '../../utils/themeUtils';
-import { ShoppingCart, Plus, Minus, Search, StickyNote, ChefHat, ChevronRight, ArrowLeft, Clock } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Search, StickyNote, ChefHat, ChevronRight, ArrowLeft, Clock, Store, MapPin, Phone, ExternalLink, Share2, X } from 'lucide-react';
 import Spinner from '../../components/ui/Spinner';
 import toast from 'react-hot-toast';
 
@@ -23,10 +23,17 @@ export default function MenuPage() {
     });
     const [storeName, setStoreName] = useState('');
     const [logoUrl, setLogoUrl] = useState('');
+    const [bannerUrl, setBannerUrl] = useState('');
+    const [operationalHours, setOperationalHours] = useState(null);
+    const [storeAddress, setStoreAddress] = useState('');
+    const [storeWhatsapp, setStoreWhatsapp] = useState('');
+    const [storeLat, setStoreLat] = useState(null);
+    const [storeLng, setStoreLng] = useState(null);
     const [welcomeMessage, setWelcomeMessage] = useState('');
     const [menuLayout, setMenuLayout] = useState('banner');
     const [categoryBanners, setCategoryBanners] = useState({});
     const [storeLocked, setStoreLocked] = useState(false);
+    const [infoModalOpen, setInfoModalOpen] = useState(false);
 
     // State untuk Food Detail Modal (Foto 1)
     const [detailModalMenu, setDetailModalMenu] = useState(null);
@@ -46,6 +53,19 @@ export default function MenuPage() {
                 if (storeData) {
                     setStoreName(storeData.name || '');
                     setLogoUrl(storeData.logoUrl || '');
+                    setBannerUrl(storeData.bannerUrl || '');
+                    setOperationalHours(
+                        storeData.operationalHours || {
+                            open24: true,
+                            openTime: '00:00',
+                            closeTime: '23:59',
+                            days: 'Setiap Hari',
+                        }
+                    );
+                    setStoreAddress(storeData.address || '');
+                    setStoreWhatsapp(storeData.whatsapp || '');
+                    setStoreLat(storeData.lat);
+                    setStoreLng(storeData.lng);
                     setWelcomeMessage(storeData.welcomeMessage || '');
                     setMenuLayout(storeData.menuLayout || 'banner');
                     setCategoryBanners(storeData.categoryBanners || {});
@@ -150,6 +170,38 @@ export default function MenuPage() {
         }).format(price);
     };
 
+    const DAYS_OF_WEEK = useMemo(() => [
+        { key: 'monday', label: 'MONDAY' },
+        { key: 'tuesday', label: 'TUESDAY' },
+        { key: 'wednesday', label: 'WEDNESDAY' },
+        { key: 'thursday', label: 'THURSDAY' },
+        { key: 'friday', label: 'FRIDAY' },
+        { key: 'saturday', label: 'SATURDAY' },
+        { key: 'sunday', label: 'SUNDAY' },
+    ], []);
+
+    // Index hari: Senin = 0, ..., Minggu = 6
+    const currentDayIdx = (new Date().getDay() + 6) % 7;
+
+    const operationalSummary = useMemo(() => {
+        if (!operationalHours || operationalHours.open24) {
+            return 'Open today, 00:00-23:59';
+        }
+        return `Open today, ${operationalHours.openTime || '08:00'}-${operationalHours.closeTime || '22:00'}`;
+    }, [operationalHours]);
+
+    const handleShareStore = () => {
+        if (navigator.share) {
+            navigator.share({
+                title: storeName,
+                url: window.location.href,
+            }).catch(() => {});
+        } else {
+            navigator.clipboard.writeText(window.location.href);
+            toast.success('Tautan restoran disalin!');
+        }
+    };
+
     const getCategoryImageUrl = (catId) => {
         if (categoryBanners && categoryBanners[catId]) {
             return categoryBanners[catId];
@@ -193,25 +245,75 @@ export default function MenuPage() {
     return (
         <>
             <div className="animate-fade-in pb-20">
-                {/* Store Header */}
-                <div className="bg-gradient-to-r from-primary to-primary-dark text-white p-5 -mx-0">
-                    <div className="flex items-center gap-3 mb-1">
-                        {logoUrl ? (
-                            <img src={logoUrl} alt="Logo" className="w-10 h-10 rounded-xl object-cover border-2 border-white/30" />
-                        ) : (
-                            <ChefHat className="w-6 h-6" />
-                        )}
-                        <h1 className="text-xl font-bold">{storeName || 'Menu'}</h1>
-                    </div>
-                    {tableId ? (
-                        <p className="text-white/80 text-sm">Meja #{String(tableId).padStart(3, '0')}</p>
+                {/* 1. Header Banner / Cover Area */}
+                <div className="relative w-full h-44 sm:h-52 bg-slate-100 overflow-hidden">
+                    {bannerUrl ? (
+                        <img
+                            src={bannerUrl}
+                            alt={storeName}
+                            className="w-full h-full object-cover"
+                        />
+                    ) : logoUrl ? (
+                        <div className="w-full h-full bg-slate-100/80 flex items-center justify-center p-6">
+                            <img
+                                src={logoUrl}
+                                alt={storeName}
+                                className="w-20 h-20 rounded-2xl object-cover shadow-xs border border-slate-200 bg-white"
+                            />
+                        </div>
                     ) : (
-                        <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 mt-1 rounded-full bg-white/20 text-white text-xs font-semibold backdrop-blur-xs">
-                            <span>Pesan Online</span>
+                        <div className="w-full h-full bg-slate-100 flex items-center justify-center text-slate-300">
+                            <Store className="w-16 h-16 stroke-1 text-slate-400/50" />
                         </div>
                     )}
+                </div>
+
+                {/* 2. Floating Cards Container */}
+                <div className="px-4 -mt-6 space-y-3 relative z-10">
+                    {/* Kartu Profil Toko (Klik untuk melihat Outlet Info) */}
+                    <div
+                        onClick={() => setInfoModalOpen(true)}
+                        className="bg-white rounded-2xl border border-border p-4 shadow-xs hover:border-slate-300 transition-all cursor-pointer flex items-center justify-between gap-3 group"
+                    >
+                        <div className="flex items-center gap-3 min-w-0">
+                            {logoUrl ? (
+                                <img
+                                    src={logoUrl}
+                                    alt="Logo"
+                                    className="w-11 h-11 rounded-xl object-cover border border-slate-100 shrink-0 shadow-2xs"
+                                />
+                            ) : (
+                                <div className="w-11 h-11 rounded-xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center shrink-0">
+                                    <Store className="w-5 h-5" />
+                                </div>
+                            )}
+                            <div className="min-w-0">
+                                <h1 className="text-base sm:text-lg font-bold text-secondary truncate group-hover:text-primary transition-colors">
+                                    {storeName || 'Menu'}
+                                </h1>
+                                <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1.5">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 inline-block animate-pulse"></span>
+                                    <span>{operationalSummary}</span>
+                                </p>
+                            </div>
+                        </div>
+                        <div className="w-8 h-8 rounded-xl bg-slate-50 group-hover:bg-slate-100 flex items-center justify-center text-slate-400 group-hover:text-secondary transition-colors shrink-0">
+                            <ChevronRight className="w-4 h-4" />
+                        </div>
+                    </div>
+
+                    {/* Kartu Nomor Meja */}
+                    <div className="bg-amber-50/70 border border-amber-200/90 rounded-2xl p-3 shadow-2xs flex items-center justify-between">
+                        <span className="text-xs font-bold text-amber-950 font-mono tracking-wide">
+                            {tableId ? `Meja Nomer : ${tableId}` : 'Pesan Online & Delivery'}
+                        </span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 border border-amber-300/80 uppercase">
+                            {tableId ? 'Dine In' : 'Takeaway'}
+                        </span>
+                    </div>
+
                     {welcomeMessage && (
-                        <p className="text-white/70 text-sm mt-2 italic">{welcomeMessage}</p>
+                        <p className="text-xs text-slate-500 italic px-1 pt-0.5">{welcomeMessage}</p>
                     )}
                 </div>
 
@@ -597,6 +699,124 @@ export default function MenuPage() {
                                 <span className="opacity-70">•</span>
                                 <span>{formatPrice(detailModalMenu.price * detailQty)}</span>
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal Outlet Info (Foto 2) */}
+            {infoModalOpen && (
+                <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
+                    <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-border overflow-hidden my-auto animate-enter">
+                        {/* Header Modal: ← Outlet Info */}
+                        <div className="px-5 py-4 border-b border-border flex items-center justify-between bg-white">
+                            <button
+                                onClick={() => setInfoModalOpen(false)}
+                                className="flex items-center gap-2 text-sm font-bold text-secondary hover:text-primary transition-colors cursor-pointer"
+                            >
+                                <ArrowLeft className="w-4 h-4" />
+                                <span>Outlet Info</span>
+                            </button>
+                            <button
+                                onClick={() => setInfoModalOpen(false)}
+                                className="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+
+                        <div className="p-6 space-y-5 max-h-[80vh] overflow-y-auto">
+                            {/* Nama Outlet & Alamat */}
+                            <div>
+                                <h2 className="text-xl font-bold text-secondary">{storeName}</h2>
+                                <div className="flex items-start gap-2 text-xs text-slate-600 mt-2.5 leading-relaxed">
+                                    <MapPin className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                                    <span className="flex-1">{storeAddress || 'Alamat restoran belum diatur.'}</span>
+                                    <button
+                                        type="button"
+                                        onClick={handleShareStore}
+                                        className="p-1.5 rounded-xl border border-border hover:bg-slate-50 text-slate-500 hover:text-secondary transition-colors cursor-pointer shrink-0"
+                                        title="Bagikan Tautan"
+                                    >
+                                        <Share2 className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Tombol Contact us & Visit us */}
+                            <div className="grid grid-cols-2 gap-3 pt-1">
+                                {storeWhatsapp ? (
+                                    <a
+                                        href={`https://wa.me/${storeWhatsapp.replace(/\D/g, '')}`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border border-border bg-white hover:bg-slate-50 text-xs font-semibold text-secondary transition-colors shadow-2xs"
+                                    >
+                                        <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                                        <span>Contact us</span>
+                                    </a>
+                                ) : (
+                                    <div className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border border-border bg-slate-50 text-xs font-semibold text-slate-400 cursor-not-allowed">
+                                        <Phone className="w-3.5 h-3.5 text-slate-300" />
+                                        <span>Contact us</span>
+                                    </div>
+                                )}
+
+                                {storeLat && storeLng ? (
+                                    <a
+                                        href={`https://www.google.com/maps/search/?api=1&query=${storeLat},${storeLng}`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border border-border bg-white hover:bg-slate-50 text-xs font-semibold text-secondary transition-colors shadow-2xs"
+                                    >
+                                        <ExternalLink className="w-3.5 h-3.5 text-primary" />
+                                        <span>Visit us</span>
+                                    </a>
+                                ) : storeAddress ? (
+                                    <a
+                                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(storeAddress)}`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border border-border bg-white hover:bg-slate-50 text-xs font-semibold text-secondary transition-colors shadow-2xs"
+                                    >
+                                        <ExternalLink className="w-3.5 h-3.5 text-primary" />
+                                        <span>Visit us</span>
+                                    </a>
+                                ) : (
+                                    <div className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border border-border bg-slate-50 text-xs font-semibold text-slate-400 cursor-not-allowed">
+                                        <ExternalLink className="w-3.5 h-3.5 text-slate-300" />
+                                        <span>Visit us</span>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Daftar Operational Hours */}
+                            <div className="pt-3 border-t border-slate-100">
+                                <h3 className="text-xs font-bold text-secondary uppercase tracking-wider mb-3">
+                                    Operational Hours
+                                </h3>
+                                <div className="divide-y divide-slate-100 text-xs">
+                                    {DAYS_OF_WEEK.map((d, index) => {
+                                        const isToday = index === currentDayIdx;
+                                        const hoursText = operationalHours?.open24
+                                            ? 'Open 24 hours'
+                                            : `${operationalHours?.openTime || '08:00'} - ${operationalHours?.closeTime || '22:00'}`;
+                                        return (
+                                            <div
+                                                key={d.key}
+                                                className={`py-3 flex items-center justify-between ${
+                                                    isToday
+                                                        ? 'font-extrabold text-secondary'
+                                                        : 'text-slate-500 font-medium'
+                                                }`}
+                                            >
+                                                <span className="tracking-wider text-[11px]">{d.label}</span>
+                                                <span className={isToday ? 'text-primary font-bold' : ''}>{hoursText}</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

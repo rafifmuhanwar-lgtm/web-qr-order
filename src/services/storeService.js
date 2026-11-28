@@ -59,6 +59,13 @@ export const getStore = async (storeId) => {
         maxDistanceKm: extra.maxDistanceKm !== undefined ? extra.maxDistanceKm : 15,
         whatsapp: extra.whatsapp || '',
         menuLayout: extra.menuLayout || 'banner',
+        bannerUrl: extra.bannerUrl || '',
+        operationalHours: extra.operationalHours || {
+            open24: true,
+            openTime: '00:00',
+            closeTime: '23:59',
+            days: 'Setiap Hari',
+        },
         categoryBanners: extra.categoryBanners || {},
         bankAccount: extra.bankAccount || null,
         withdrawals: Array.isArray(extra.withdrawals) ? extra.withdrawals : [],

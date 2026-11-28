@@ -36,5 +36,9 @@ export const generateQRUrl = (storeId, tableNumber) => {
 };
 
 export const padTableNumber = (num) => {
-    return String(num).padStart(3, '0');
+    if (!num && num !== 0) return '-';
+    if (/^\d+$/.test(String(num).trim())) {
+        return String(num).trim().padStart(3, '0');
+    }
+    return String(num).trim();
 };

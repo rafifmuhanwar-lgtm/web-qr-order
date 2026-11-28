@@ -4,7 +4,7 @@ import { THEME_COLORS, COLOR_OPTIONS, applyThemeColor } from '../../utils/themeU
 import { parseStoreConfig } from '../../utils/deliveryUtils';
 import { getStore, updateStore } from '../../services/storeService';
 import { uploadMenuImage } from '../../services/menuService';
-import { Store, Palette, Save, Check, Pipette, MessageSquare, Receipt, Upload, Bike, MapPin, Phone, Layers, LayoutGrid, Sparkles } from 'lucide-react';
+import { Store, Palette, Save, Check, Pipette, MessageSquare, Receipt, Upload, Bike, MapPin, Phone, Layers, LayoutGrid, Sparkles, Clock, ImageIcon } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Spinner from '../../components/ui/Spinner';
@@ -30,10 +30,17 @@ export default function SettingsPage() {
 
     // New fields
     const [logoUrl, setLogoUrl] = useState('');
+    const [bannerUrl, setBannerUrl] = useState('');
     const [welcomeMessage, setWelcomeMessage] = useState('');
     const [receiptFooter, setReceiptFooter] = useState('');
     const [menuLayout, setMenuLayout] = useState('banner');
     const [uploadingLogo, setUploadingLogo] = useState(false);
+    const [uploadingBanner, setUploadingBanner] = useState(false);
+
+    // Operational Hours
+    const [open24Hours, setOpen24Hours] = useState(true);
+    const [openTime, setOpenTime] = useState('08:00');
+    const [closeTime, setCloseTime] = useState('22:00');
 
     useEffect(() => {
         const fetchStore = async () => {
@@ -44,9 +51,16 @@ export default function SettingsPage() {
                     setThemeColor(data.themeColor || 'orange');
                     setCustomColor(data.customColor || '#6366f1');
                     setLogoUrl(data.logoUrl || '');
+                    setBannerUrl(data.bannerUrl || '');
                     setWelcomeMessage(data.welcomeMessage || '');
                     setReceiptFooter(data.receiptFooter || '');
                     setMenuLayout(data.menuLayout || 'banner');
+
+                    if (data.operationalHours) {
+                        setOpen24Hours(data.operationalHours.open24 ?? true);
+                        setOpenTime(data.operationalHours.openTime || '08:00');
+                        setCloseTime(data.operationalHours.closeTime || '22:00');
+                    }
 
                     const cfg = parseStoreConfig(data);
                     setAddress(cfg.address || '');
@@ -81,9 +95,31 @@ export default function SettingsPage() {
         }
     };
 
+    const handleUploadBanner = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setUploadingBanner(true);
+        try {
+            const url = await uploadMenuImage(file);
+            setBannerUrl(url);
+            toast.success('Banner toko berhasil diupload');
+        } catch {
+            toast.error('Gagal upload banner toko');
+        } finally {
+            setUploadingBanner(false);
+        }
+    };
+
     const handleSave = async () => {
         setSaving(true);
         try {
+            const operationalHours = {
+                open24: open24Hours,
+                openTime: open24Hours ? '00:00' : openTime,
+                closeTime: open24Hours ? '23:59' : closeTime,
+                days: 'Setiap Hari',
+            };
+
             const deliveryConfig = {
                 address,
                 lat: storeLat,
@@ -97,12 +133,16 @@ export default function SettingsPage() {
                 welcomeMessage,
                 receiptFooter,
                 menuLayout,
+                bannerUrl,
+                operationalHours,
             };
 
             await updateStore(storeId, {
                 name: storeName,
                 address: JSON.stringify(deliveryConfig),
                 logoUrl,
+                bannerUrl,
+                operationalHours,
                 themeColor,
                 customColor: themeColor === 'custom' ? customColor : null,
                 welcomeMessage,
@@ -203,6 +243,93 @@ export default function SettingsPage() {
                                 disabled={uploadingLogo}
                             />
                         </label>
+                    )}
+                </div>
+
+                {/* Banner Header Upload */}
+                <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Banner Header Toko (Cover)</label>
+                    {bannerUrl ? (
+                        <div className="space-y-2">
+                            <div className="relative w-full h-36 rounded-xl overflow-hidden border border-border shadow-sm">
+                                <img
+                                    src={bannerUrl}
+                                    alt="Banner Toko"
+                                    className="w-full h-full object-cover"
+                                />
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <p className="text-xs text-slate-400">Banner ini akan tampil di bagian atas menu web pelanggan</p>
+                                <button
+                                    onClick={() => setBannerUrl('')}
+                                    className="px-3 py-1 rounded-lg bg-red-500 text-white text-xs font-medium hover:bg-red-600 cursor-pointer"
+                                >
+                                    Hapus Banner
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer hover:border-primary hover:bg-primary/5 transition-all">
+                            {uploadingBanner ? (
+                                <div className="text-center">
+                                    <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                                    <p className="text-sm text-slate-500">Mengupload Banner...</p>
+                                </div>
+                            ) : (
+                                <>
+                                    <ImageIcon className="w-8 h-8 text-slate-400 mb-1" />
+                                    <p className="text-sm font-medium text-slate-600">Upload Banner Header Toko</p>
+                                    <p className="text-xs text-slate-400 mt-0.5">Rasio lebar (Landscape, maks 5MB)</p>
+                                </>
+                            )}
+                            <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={handleUploadBanner}
+                                disabled={uploadingBanner}
+                            />
+                        </label>
+                    )}
+                </div>
+            </div>
+
+            {/* Jam Operasional Resto */}
+            <div className="bg-white rounded-2xl border border-border p-5 shadow-sm space-y-4">
+                <div className="flex items-center gap-2 mb-1">
+                    <Clock className="w-5 h-5 text-primary" />
+                    <div>
+                        <h2 className="font-bold text-secondary">Jam Operasional Toko</h2>
+                        <p className="text-xs text-slate-400">Atur jadwal operasional yang tampil pada info outlet pelanggan</p>
+                    </div>
+                </div>
+
+                <div className="space-y-3">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                            type="checkbox"
+                            checked={open24Hours}
+                            onChange={(e) => setOpen24Hours(e.target.checked)}
+                            className="w-4 h-4 rounded text-primary focus:ring-primary/20 accent-primary cursor-pointer"
+                        />
+                        <span className="text-sm font-semibold text-slate-700">Buka 24 Jam Setiap Hari</span>
+                    </label>
+
+                    {!open24Hours && (
+                        <div className="grid grid-cols-2 gap-3 pt-1 animate-fade-in">
+                            <Input
+                                type="time"
+                                label="Jam Buka"
+                                value={openTime}
+                                onChange={(e) => setOpenTime(e.target.value)}
+                            />
+                            <Input
+                                type="time"
+                                label="Jam Tutup"
+                                value={closeTime}
+                                onChange={(e) => setCloseTime(e.target.value)}
+                            />
+                        </div>
                     )}
                 </div>
             </div>
