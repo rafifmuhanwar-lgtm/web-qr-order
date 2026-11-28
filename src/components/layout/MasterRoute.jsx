@@ -2,10 +2,10 @@ import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import Spinner from '../ui/Spinner';
-import { ShieldAlert, Lock, KeyRound, ArrowLeft } from 'lucide-react';
+import { Lock, KeyRound, ArrowLeft, ShieldAlert, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-// Master Security PIN (Dapat diubah atau disimpan di env)
+// Master Security PIN
 const MASTER_PIN = '998877';
 const MASTER_SESSION_KEY = 'emakan_master_authenticated_session';
 
@@ -33,26 +33,26 @@ export default function MasterRoute({ children }) {
 
     if (!isMasterAdmin) {
         return (
-            <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-4">
-                <div className="max-w-md w-full bg-slate-900 border border-red-500/30 rounded-3xl p-8 text-center shadow-2xl shadow-red-950/50">
-                    <div className="w-20 h-20 bg-red-500/10 border border-red-500/30 rounded-2xl flex items-center justify-center mx-auto mb-6 text-red-500 animate-pulse">
-                        <ShieldAlert className="w-10 h-10" />
+            <div className="min-h-screen bg-slate-50 text-slate-800 flex items-center justify-center p-4">
+                <div className="max-w-md w-full bg-white border border-border rounded-2xl p-8 text-center shadow-xs">
+                    <div className="w-14 h-14 bg-rose-50 border border-rose-200 rounded-2xl flex items-center justify-center mx-auto mb-4 text-rose-600">
+                        <ShieldAlert className="w-7 h-7" />
                     </div>
-                    <span className="px-3 py-1 bg-red-500/20 text-red-400 text-xs font-mono font-bold tracking-widest rounded-full border border-red-500/30 uppercase">
-                        Access Denied • 403 Forbidden
+                    <span className="px-2.5 py-0.5 bg-rose-50 text-rose-700 text-[11px] font-bold rounded-full border border-rose-200">
+                        Akses Ditolak • 403 Forbidden
                     </span>
-                    <h1 className="text-2xl font-black text-white mt-4 mb-2 tracking-tight">
-                        PORTAL MASTER ADMIN
+                    <h1 className="text-xl font-bold text-secondary mt-3 mb-1">
+                        Portal Master Admin
                     </h1>
-                    <p className="text-sm text-slate-400 mb-6 leading-relaxed">
-                        Akun <span className="text-slate-200 font-semibold">{user.email}</span> tidak memiliki hak akses Super Administrator. Aktivitas dan IP request ini tercatat demi keamanan sistem.
+                    <p className="text-xs text-slate-500 mb-6 leading-relaxed">
+                        Akun <span className="text-secondary font-semibold">{user.email}</span> tidak memiliki hak akses Super Administrator.
                     </p>
                     <a
                         href="/admin"
-                        className="inline-flex items-center gap-2 px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white text-sm font-semibold rounded-xl border border-white/10 transition-colors"
+                        className="inline-flex items-center gap-2 px-5 py-2.5 bg-secondary hover:bg-secondary/90 text-white text-xs font-semibold rounded-xl transition-colors shadow-xs"
                     >
                         <ArrowLeft className="w-4 h-4" />
-                        Kembali ke Dashboard Resto
+                        <span>Kembali ke Dashboard Resto</span>
                     </a>
                 </div>
             </div>
@@ -75,22 +75,22 @@ export default function MasterRoute({ children }) {
 
     if (!pinAuthenticated) {
         return (
-            <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-4">
-                <div className="max-w-md w-full bg-slate-900/90 backdrop-blur-xl border border-indigo-500/30 rounded-3xl p-8 shadow-2xl shadow-indigo-950/50">
-                    <div className="text-center mb-8">
-                        <div className="w-16 h-16 bg-gradient-to-tr from-indigo-600 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-indigo-500/30">
-                            <Lock className="w-8 h-8 text-white" />
+            <div className="min-h-screen bg-slate-50 text-slate-800 flex items-center justify-center p-4">
+                <div className="max-w-md w-full bg-white border border-border rounded-2xl p-6 sm:p-8 shadow-xs">
+                    <div className="text-center mb-6">
+                        <div className="w-14 h-14 bg-primary/10 border border-primary/20 rounded-2xl flex items-center justify-center mx-auto mb-3 text-primary">
+                            <Lock className="w-6 h-6" />
                         </div>
-                        <span className="px-3 py-1 bg-indigo-500/20 text-indigo-400 text-xs font-mono font-bold tracking-widest rounded-full border border-indigo-500/30 uppercase">
-                            Security Clearance Level 5
+                        <span className="px-2.5 py-0.5 bg-primary/10 text-primary text-[11px] font-bold rounded-full border border-primary/20">
+                            Portal Master Admin
                         </span>
-                        <h2 className="text-2xl font-black text-white mt-3">Verifikasi Master PIN</h2>
-                        <p className="text-xs text-slate-400 mt-1">
-                            Masukkan 6 digit Master Passcode untuk mengakses console platform eMakan
+                        <h2 className="text-xl font-bold text-secondary mt-2.5">Verifikasi Master PIN</h2>
+                        <p className="text-xs text-slate-500 mt-1">
+                            Masukkan 6 digit kode keamanan untuk mengakses konsol platform eMakan
                         </p>
                     </div>
 
-                    <form onSubmit={handleVerifyPin} className="space-y-6">
+                    <form onSubmit={handleVerifyPin} className="space-y-5">
                         <div>
                             <div className="relative">
                                 <input
@@ -102,35 +102,34 @@ export default function MasterRoute({ children }) {
                                         setErrorMsg('');
                                         setPin(e.target.value.replace(/\D/g, ''));
                                     }}
-                                    placeholder="• • • • • •"
-                                    className="w-full text-center text-3xl tracking-[1em] font-mono py-4 bg-slate-950 border-2 border-indigo-500/40 rounded-2xl text-white placeholder-slate-700 focus:outline-none focus:border-indigo-400 transition-colors shadow-inner"
+                                    placeholder="••••••"
+                                    className="w-full text-center text-2xl tracking-[0.6em] font-mono py-3.5 bg-slate-50 border border-border rounded-xl text-secondary placeholder-slate-300 focus:outline-none focus:border-primary focus:bg-white transition-all shadow-inner"
                                 />
                             </div>
                             {errorMsg && (
-                                <p className="text-red-400 text-xs font-medium text-center mt-2 animate-bounce">
-                                    {errorMsg}
+                                <p className="text-rose-600 text-xs font-semibold text-center mt-2 flex items-center justify-center gap-1">
+                                    <AlertCircle className="w-3.5 h-3.5" />
+                                    <span>{errorMsg}</span>
                                 </p>
                             )}
-                            <p className="text-[11px] text-slate-500 text-center mt-2">
-                                Hint default dev: <span className="font-mono text-slate-400">998877</span>
-                            </p>
                         </div>
 
                         <button
                             type="submit"
                             disabled={pin.length < 6}
-                            className="w-full py-4 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 disabled:opacity-40 text-white font-bold rounded-2xl shadow-lg shadow-indigo-500/25 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                            className="w-full py-3 bg-primary hover:bg-primary-dark disabled:opacity-40 text-white text-xs font-bold rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
                         >
-                            <KeyRound className="w-5 h-5" />
-                            Buka Kunci Portal
+                            <KeyRound className="w-4 h-4" />
+                            <span>Buka Kunci Portal</span>
                         </button>
 
-                        <div className="text-center pt-2">
+                        <div className="text-center pt-1">
                             <a
                                 href="/admin"
-                                className="text-xs text-slate-400 hover:text-white transition-colors"
+                                className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-secondary font-medium transition-colors"
                             >
-                                ← Kembali ke Admin Biasa
+                                <ArrowLeft className="w-3.5 h-3.5" />
+                                <span>Kembali ke Dashboard Resto</span>
                             </a>
                         </div>
                     </form>
